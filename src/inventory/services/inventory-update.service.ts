@@ -10,6 +10,11 @@ import { toInventoryItemView } from '../helper';
 import { InventoryItemViewDto } from '../dto/inventory-item-view.dto';
 import { UpdateInventoryItemDto } from '../dto/update-inventory-item.dto';
 import { InventoryItem } from '../entities/inventory-item.entity';
+import {
+  InventoryActivity,
+  InventoryActivityType,
+} from '../entities/inventory-activity.entity';
+import { InventoryItemStatus } from '../entities/inventory-item.entity';
 
 @Injectable()
 export class InventoryUpdateService {
@@ -65,8 +70,11 @@ export class InventoryUpdateService {
     if (dto.condition !== undefined) {
       item.condition = dto.condition;
     }
+    const prevStatus = item.status;
+    let nextStatus = item.status;
     if (dto.status !== undefined) {
       item.status = dto.status;
+      nextStatus = dto.status;
     }
     if (dto.knownIssues !== undefined) {
       item.knownIssues = dto.knownIssues?.trim() || null;
@@ -78,7 +86,38 @@ export class InventoryUpdateService {
           : Number(dto.expectedSalePrice).toFixed(2);
     }
 
-    const saved = await this.inventoryItemsRepository.save(item);
+    const saved = await this.inventoryItemsRepository.manager.transaction(
+      async (manager) => {
+        const persisted = await manager.getRepository(InventoryItem).save(item);
+
+        if (prevStatus !== nextStatus) {
+          const type =
+            prevStatus !== InventoryItemStatus.IN_REPAIR &&
+            nextStatus === InventoryItemStatus.IN_REPAIR
+              ? InventoryActivityType.MOVED_TO_REPAIR
+              : prevStatus === InventoryItemStatus.IN_REPAIR &&
+                  nextStatus === InventoryItemStatus.READY_FOR_SALE
+                ? InventoryActivityType.MARKED_DONE
+                : InventoryActivityType.STATUS_CHANGED;
+
+          const activity = manager.getRepository(InventoryActivity).create({
+            item: persisted,
+            type,
+            fromStatus: prevStatus,
+            toStatus: nextStatus,
+            notes:
+              type === InventoryActivityType.MARKED_DONE
+                ? 'Inventory status changed to ready for sale'
+                : type === InventoryActivityType.MOVED_TO_REPAIR
+                  ? 'Inventory item moved to repair'
+                  : `Inventory status changed from ${prevStatus} to ${nextStatus}`,
+          });
+          await manager.getRepository(InventoryActivity).save(activity);
+        }
+
+        return persisted;
+      },
+    );
     return toInventoryItemView(saved);
   }
 }

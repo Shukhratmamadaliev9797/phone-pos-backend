@@ -7,6 +7,10 @@ import {
   InventoryItemCondition,
   InventoryItemStatus,
 } from 'src/inventory/entities/inventory-item.entity';
+import {
+  InventoryActivity,
+  InventoryActivityType,
+} from 'src/inventory/entities/inventory-activity.entity';
 import { EntityManager, QueryFailedError, Repository } from 'typeorm';
 import {
   CreatePurchaseCustomerDto,
@@ -126,6 +130,17 @@ export class PurchaseCreateService extends PurchaseBaseService {
             });
 
             const savedInventory = await inventoryItemRepository.save(inventory);
+            await manager.getRepository(InventoryActivity).save(
+              manager.getRepository(InventoryActivity).create({
+                item: savedInventory,
+                type: InventoryActivityType.PURCHASED,
+                fromStatus: null,
+                toStatus: initialStatus,
+                notes: `Phone purchased for ${this.toMoney(
+                  this.parseNumeric(item.purchasePrice),
+                )}`,
+              }),
+            );
 
             const purchaseItem = purchaseItemRepository.create({
               purchase: savedPurchase,

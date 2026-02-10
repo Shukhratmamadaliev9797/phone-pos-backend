@@ -11,6 +11,7 @@ import { InventoryItem } from '../entities/inventory-item.entity';
 type InventoryRowRaw = {
   id: number;
   imei: string;
+  storage: string | null;
   serialNumber: string | null;
   purchaseId: number | null;
   saleId: number | null;
@@ -75,6 +76,7 @@ export class InventoryFindAllService {
     const raws = await qb
       .select('item.id', 'id')
       .addSelect('item.imei', 'imei')
+      .addSelect('item.storage', 'storage')
       .addSelect('item."serialNumber"', 'serialNumber')
       .addSelect('item."purchaseId"', 'purchaseId')
       .addSelect('item."saleId"', 'saleId')
@@ -88,6 +90,7 @@ export class InventoryFindAllService {
       .addSelect('COALESCE(SUM(repair."costTotal"), 0)', 'repairCost')
       .groupBy('item.id')
       .addGroupBy('item.imei')
+      .addGroupBy('item.storage')
       .addGroupBy('item."serialNumber"')
       .addGroupBy('item."purchaseId"')
       .addGroupBy('item."saleId"')
@@ -112,6 +115,7 @@ export class InventoryFindAllService {
         brand: row.brand,
         model: row.model,
         imei: row.imei,
+        storage: row.storage,
         serialNumber: row.serialNumber,
         purchaseId: row.purchaseId,
         saleId: row.saleId,

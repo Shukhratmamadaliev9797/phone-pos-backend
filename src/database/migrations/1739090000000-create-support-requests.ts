@@ -7,7 +7,9 @@ export class CreateSupportRequests1739090000000
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
-      CREATE TYPE "support_requests_senderrole_enum" AS ENUM ('OWNER_ADMIN', 'MANAGER', 'CASHIER', 'TECHNICIAN');
+      DO $$ BEGIN
+        CREATE TYPE "support_requests_senderrole_enum" AS ENUM ('OWNER_ADMIN', 'MANAGER', 'CASHIER', 'TECHNICIAN');
+      EXCEPTION WHEN duplicate_object THEN null; END $$;
     `);
 
     await queryRunner.query(`
@@ -29,10 +31,16 @@ export class CreateSupportRequests1739090000000
     );
 
     await queryRunner.query(`
-      ALTER TABLE "support_requests"
-      ADD CONSTRAINT "FK_support_requests_senderUserId"
-      FOREIGN KEY ("senderUserId") REFERENCES "users"("id")
-      ON DELETE SET NULL ON UPDATE NO ACTION;
+      DO $$ BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint WHERE conname = 'FK_support_requests_senderUserId'
+        ) THEN
+          ALTER TABLE "support_requests"
+          ADD CONSTRAINT "FK_support_requests_senderUserId"
+          FOREIGN KEY ("senderUserId") REFERENCES "users"("id")
+          ON DELETE SET NULL ON UPDATE NO ACTION;
+        END IF;
+      END $$;
     `);
   }
 
@@ -47,4 +55,3 @@ export class CreateSupportRequests1739090000000
     await queryRunner.query('DROP TYPE IF EXISTS "support_requests_senderrole_enum";');
   }
 }
-

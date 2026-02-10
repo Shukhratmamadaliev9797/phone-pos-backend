@@ -7,7 +7,9 @@ export class CreateWorkersAndSalaryPayments1739077000000
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
-      CREATE TYPE "workers_workerrole_enum" AS ENUM ('MANAGER', 'CASHIER', 'TECHNICIAN', 'OTHER');
+      DO $$ BEGIN
+        CREATE TYPE "workers_workerrole_enum" AS ENUM ('MANAGER', 'CASHIER', 'TECHNICIAN', 'OTHER');
+      EXCEPTION WHEN duplicate_object THEN null; END $$;
     `);
 
     await queryRunner.query(`
@@ -56,17 +58,29 @@ export class CreateWorkersAndSalaryPayments1739077000000
     );
 
     await queryRunner.query(`
-      ALTER TABLE "workers"
-      ADD CONSTRAINT "FK_workers_userId"
-      FOREIGN KEY ("userId") REFERENCES "users"("id")
-      ON DELETE SET NULL ON UPDATE NO ACTION;
+      DO $$ BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint WHERE conname = 'FK_workers_userId'
+        ) THEN
+          ALTER TABLE "workers"
+          ADD CONSTRAINT "FK_workers_userId"
+          FOREIGN KEY ("userId") REFERENCES "users"("id")
+          ON DELETE SET NULL ON UPDATE NO ACTION;
+        END IF;
+      END $$;
     `);
 
     await queryRunner.query(`
-      ALTER TABLE "worker_salary_payments"
-      ADD CONSTRAINT "FK_worker_salary_payments_workerId"
-      FOREIGN KEY ("workerId") REFERENCES "workers"("id")
-      ON DELETE CASCADE ON UPDATE NO ACTION;
+      DO $$ BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM pg_constraint WHERE conname = 'FK_worker_salary_payments_workerId'
+        ) THEN
+          ALTER TABLE "worker_salary_payments"
+          ADD CONSTRAINT "FK_worker_salary_payments_workerId"
+          FOREIGN KEY ("workerId") REFERENCES "workers"("id")
+          ON DELETE CASCADE ON UPDATE NO ACTION;
+        END IF;
+      END $$;
     `);
   }
 

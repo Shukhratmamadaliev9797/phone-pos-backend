@@ -7,6 +7,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { CustomerEnsureService } from 'src/customer/services/customer-ensure.service';
 import { Customer } from 'src/customer/entities/customer.entity';
 import { InventoryItem, InventoryItemStatus } from 'src/inventory/entities/inventory-item.entity';
+import {
+  InventoryActivity,
+  InventoryActivityType,
+} from 'src/inventory/entities/inventory-activity.entity';
 import { EntityManager, QueryFailedError, Repository } from 'typeorm';
 import { CreateSaleCustomerDto, CreateSaleDto } from '../dto/create-sale.dto';
 import { SaleDetailViewDto } from '../dto/sale-result.dto';
@@ -108,9 +112,21 @@ export class SaleCreateService extends SaleBaseService {
 
           await saleItemRepository.save(saleItem);
 
+          const previousStatus = inventory.status;
           inventory.status = InventoryItemStatus.SOLD;
           inventory.sale = savedSale;
           await inventoryRepository.save(inventory);
+          await manager.getRepository(InventoryActivity).save(
+            manager.getRepository(InventoryActivity).create({
+              item: inventory,
+              type: InventoryActivityType.SOLD,
+              fromStatus: previousStatus,
+              toStatus: InventoryItemStatus.SOLD,
+              notes: `Phone sold for ${this.toMoney(
+                this.parseNumeric(itemDto.salePrice),
+              )}`,
+            }),
+          );
         }
 
         if (paidNow > 0) {

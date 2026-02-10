@@ -4,11 +4,13 @@ import {
   Index,
   JoinColumn,
   ManyToOne,
+  OneToMany,
   RelationId,
 } from 'typeorm';
 import { Extender } from 'src/common/entities/common.entites';
 import { Purchase } from 'src/purchase/entities/purchase.entity';
 import { Sale } from 'src/sale/entities/sale.entity';
+import { InventoryActivity } from './inventory-activity.entity';
 
 export enum InventoryItemCondition {
   GOOD = 'GOOD',
@@ -79,4 +81,7 @@ export class InventoryItem extends Extender {
 
   @RelationId((entity: InventoryItem) => entity.sale)
   saleId: number | null;
+
+  @OneToMany(() => InventoryActivity, (activity) => activity.item)
+  activities: InventoryActivity[];
 }

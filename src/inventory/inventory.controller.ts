@@ -17,9 +17,11 @@ import {
   InventoryListResponseDto,
 } from './dto/inventory-items-query.dto';
 import { InventoryItemViewDto } from './dto/inventory-item-view.dto';
+import { InventoryItemDetailViewDto } from './dto/inventory-item-view.dto';
 import { UpdateInventoryItemDto } from './dto/update-inventory-item.dto';
 import { CreateInventoryItemDto } from './dto/create-inventory-item.dto';
 import { InventoryFindAllService } from './services/inventory-find-all.service';
+import { InventoryFindOneService } from './services/inventory-find-one.service';
 import { InventoryUpdateService } from './services/inventory-update.service';
 import { InventoryCreateService } from './services/inventory-create.service';
 import { InventoryDeleteService } from './services/inventory-delete.service';
@@ -30,6 +32,7 @@ import { InventoryDeleteService } from './services/inventory-delete.service';
 export class InventoryController {
   constructor(
     private readonly inventoryFindAllService: InventoryFindAllService,
+    private readonly inventoryFindOneService: InventoryFindOneService,
     private readonly inventoryUpdateService: InventoryUpdateService,
     private readonly inventoryCreateService: InventoryCreateService,
     private readonly inventoryDeleteService: InventoryDeleteService,
@@ -56,6 +59,20 @@ export class InventoryController {
     @Query() query: InventoryItemsQueryDto,
   ): Promise<InventoryListResponseDto> {
     return this.inventoryFindAllService.execute(query);
+  }
+
+  @Get(':id')
+  @Roles(
+    UserRole.OWNER_ADMIN,
+    UserRole.MANAGER,
+    UserRole.CASHIER,
+    UserRole.TECHNICIAN,
+  )
+  @ApiOkResponse({ type: InventoryItemDetailViewDto })
+  async findOne(
+    @Param('id', ParseIntPipe) id: number,
+  ): Promise<InventoryItemDetailViewDto> {
+    return this.inventoryFindOneService.execute(id);
   }
 
   @Patch(':id')

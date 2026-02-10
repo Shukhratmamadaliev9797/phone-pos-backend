@@ -3,6 +3,7 @@ import { resolve } from 'path';
 import { DataSource } from 'typeorm';
 import { Customer } from 'src/customer/entities/customer.entity';
 import { InventoryItem } from 'src/inventory/entities/inventory-item.entity';
+import { InventoryActivity } from 'src/inventory/entities/inventory-activity.entity';
 import { PaymentAllocation } from 'src/payment/entities/payment-allocation.entity';
 import { Payment } from 'src/payment/entities/payment.entity';
 import { PurchaseItem } from 'src/purchase/entities/purchase-item.entity';
@@ -27,6 +28,8 @@ import { DropUsersPasswordColumn1739059200000 } from './1739059200000-drop-users
 import { AddInventoryExpectedSalePrice1739082000000 } from './1739082000000-add-inventory-expected-sale-price';
 import { CreateSupportRequests1739090000000 } from './1739090000000-create-support-requests';
 import { AddSupportRequestReadStatus1739091000000 } from './1739091000000-add-support-request-read-status';
+import { CreateInventoryActivities1739093000000 } from './1739093000000-create-inventory-activities';
+import { ExtendInventoryActivitiesTypeEnum1739094000000 } from './1739094000000-extend-inventory-activities-type-enum';
 
 const envPath = resolve(__dirname, '../../../.env');
 loadEnv({ path: envPath, override: true });
@@ -90,6 +93,7 @@ const dataSource = new DataSource({
     User,
     Customer,
     InventoryItem,
+    InventoryActivity,
     Purchase,
     PurchaseItem,
     PurchaseActivity,
@@ -115,6 +119,8 @@ const dataSource = new DataSource({
     AddInventoryExpectedSalePrice1739082000000,
     CreateSupportRequests1739090000000,
     AddSupportRequestReadStatus1739091000000,
+    CreateInventoryActivities1739093000000,
+    ExtendInventoryActivitiesTypeEnum1739094000000,
   ],
   synchronize: false,
 });

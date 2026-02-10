@@ -1,5 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { InventoryItemStatus } from 'src/inventory/entities/inventory-item.entity';
+import {
+  InventoryActivity,
+  InventoryActivityType,
+} from 'src/inventory/entities/inventory-activity.entity';
 import { CreateRepairCaseDto } from '../dto/create-repair-case.dto';
 import { RepairDetailViewDto } from '../dto/repair-result.dto';
 import { RepairEntry } from '../entities/repair-entry.entity';
@@ -58,8 +62,18 @@ export class RepairCreateCaseService extends RepairBaseService {
           await manager.getRepository(RepairEntry).save(entry);
         }
 
+        const previousStatus = item.status;
         item.status = InventoryItemStatus.IN_REPAIR;
         await manager.getRepository(InventoryItem).save(item);
+        await manager.getRepository(InventoryActivity).save(
+          manager.getRepository(InventoryActivity).create({
+            item,
+            type: InventoryActivityType.MOVED_TO_REPAIR,
+            fromStatus: previousStatus,
+            toStatus: InventoryItemStatus.IN_REPAIR,
+            notes: 'Repair case created from inventory flow',
+          }),
+        );
 
         return createdRepair;
       },

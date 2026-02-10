@@ -40,6 +40,9 @@ export class InventoryListItemDto {
   imei: string;
 
   @ApiPropertyOptional()
+  storage?: string | null;
+
+  @ApiPropertyOptional()
   serialNumber?: string | null;
 
   @ApiPropertyOptional()

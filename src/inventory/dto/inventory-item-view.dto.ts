@@ -2,6 +2,10 @@ import {
   InventoryItemCondition,
   InventoryItemStatus,
 } from '../entities/inventory-item.entity';
+import {
+  InventoryActivityType,
+  InventoryItemStatusValue,
+} from '../entities/inventory-activity.entity';
 
 export class InventoryItemViewDto {
   id: number;
@@ -16,4 +20,17 @@ export class InventoryItemViewDto {
   status: InventoryItemStatus;
   purchaseId?: number | null;
   saleId?: number | null;
+}
+
+export class InventoryActivityViewDto {
+  id: number;
+  type: InventoryActivityType;
+  fromStatus?: InventoryItemStatusValue | null;
+  toStatus: InventoryItemStatusValue;
+  notes?: string | null;
+  happenedAt: Date;
+}
+
+export class InventoryItemDetailViewDto extends InventoryItemViewDto {
+  activities: InventoryActivityViewDto[];
 }
