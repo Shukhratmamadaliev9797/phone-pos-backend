@@ -1,0 +1,45 @@
+{
+  "name": "phone-shop-pos-backend",
+  "description": "NestJS API for Phone Shop POS",
+  "stack": "heroku-24",
+  "buildpacks": [
+    {
+      "url": "heroku/nodejs"
+    }
+  ],
+  "addons": [
+    "heroku-postgresql:essential-0"
+  ],
+  "env": {
+    "APP_ENV": {
+      "value": "production"
+    },
+    "APP_PORT": {
+      "value": "3000"
+    },
+    "JWT_SECRET": {
+      "description": "JWT access token secret"
+    },
+    "JWT_REFRESH_SECRET": {
+      "description": "JWT refresh token secret"
+    },
+    "JWT_ACCESS_EXPIRES": {
+      "value": "15m"
+    },
+    "JWT_REFRESH_EXPIRES": {
+      "value": "7d"
+    },
+    "SWAGGER_PROTECT": {
+      "value": "true"
+    },
+    "SWAGGER_USER": {
+      "value": "admin"
+    },
+    "SWAGGER_PASSWORD": {
+      "value": "admin123"
+    },
+    "NPM_CONFIG_PRODUCTION": {
+      "value": "false"
+    }
+  }
+}
