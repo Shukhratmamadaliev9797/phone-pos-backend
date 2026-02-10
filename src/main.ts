@@ -12,10 +12,29 @@ async function bootstrap() {
       : []),
     ...(process.env.FRONTEND_URL ? [process.env.FRONTEND_URL.trim()] : []),
     'http://localhost:5173',
+    'http://127.0.0.1:5173',
   ].filter(Boolean);
 
   app.enableCors({
-    origin: frontendOrigins,
+    origin: (origin, callback) => {
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+
+      const normalizedOrigin = origin.toLowerCase();
+      const isConfiguredOrigin = frontendOrigins.some(
+        (allowedOrigin) => allowedOrigin.toLowerCase() === normalizedOrigin,
+      );
+      const isVercelPreview = normalizedOrigin.endsWith('.vercel.app');
+
+      if (isConfiguredOrigin || isVercelPreview) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error(`CORS blocked for origin: ${origin}`), false);
+    },
     credentials: true,
   });
 
