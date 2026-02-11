@@ -269,14 +269,14 @@ export class PurchaseCreateService extends PurchaseBaseService {
       return InventoryItemStatus.IN_REPAIR;
     }
 
-    if (initialStatus === InitialPurchaseItemStatus.IN_STOCK) {
-      return InventoryItemStatus.IN_STOCK;
+    if (initialStatus === InitialPurchaseItemStatus.READY_FOR_SALE) {
+      return InventoryItemStatus.READY_FOR_SALE;
     }
 
     if (condition === InventoryItemCondition.BROKEN) {
       return InventoryItemStatus.IN_REPAIR;
     }
 
-    return InventoryItemStatus.IN_STOCK;
+    return InventoryItemStatus.READY_FOR_SALE;
   }
 }

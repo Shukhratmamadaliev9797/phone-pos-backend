@@ -157,13 +157,30 @@ export class SaleUpdateService extends SaleBaseService {
         current.notes = itemDto.notes ?? null;
         await saleItemsRepository.save(current);
       } else {
-        const created = saleItemsRepository.create({
-          sale,
-          item: inventory,
-          salePrice: this.toMoney(this.parseNumeric(itemDto.salePrice)),
-          notes: itemDto.notes ?? null,
-        });
-        await saleItemsRepository.save(created);
+        const salePrice = this.toMoney(this.parseNumeric(itemDto.salePrice));
+        const existingAny = await saleItemsRepository
+          .createQueryBuilder('saleItem')
+          .where('saleItem.itemId = :itemId', { itemId: inventory.id })
+          .orderBy('saleItem.id', 'DESC')
+          .getOne();
+
+        if (existingAny) {
+          existingAny.sale = sale;
+          existingAny.item = inventory;
+          existingAny.salePrice = salePrice;
+          existingAny.notes = itemDto.notes ?? null;
+          existingAny.isActive = true;
+          existingAny.deletedAt = null;
+          await saleItemsRepository.save(existingAny);
+        } else {
+          const created = saleItemsRepository.create({
+            sale,
+            item: inventory,
+            salePrice,
+            notes: itemDto.notes ?? null,
+          });
+          await saleItemsRepository.save(created);
+        }
       }
 
       inventory.status = InventoryItemStatus.SOLD;

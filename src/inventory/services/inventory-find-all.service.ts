@@ -106,7 +106,14 @@ export class InventoryFindAllService {
       .getRawMany<InventoryRowRaw>();
 
     const data: InventoryListItemDto[] = raws.map((row) => {
-      const purchaseCost = Number(row.purchaseCost ?? 0);
+      const directPrice = Number(row.expectedSalePrice ?? 0);
+      const purchaseCostFromPurchase = Number(row.purchaseCost ?? 0);
+      const purchaseCost =
+        purchaseCostFromPurchase > 0
+          ? purchaseCostFromPurchase
+          : row.purchaseId
+            ? 0
+            : directPrice;
       const repairCost = Number(row.repairCost ?? 0);
 
       return {

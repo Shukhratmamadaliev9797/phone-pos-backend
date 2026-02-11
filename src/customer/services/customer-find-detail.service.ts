@@ -1,8 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { InventoryItem } from 'src/inventory/entities/inventory-item.entity';
+import { PurchaseItem } from 'src/purchase/entities/purchase-item.entity';
 import { PurchaseActivity } from 'src/purchase/entities/purchase-activity.entity';
 import { Purchase } from 'src/purchase/entities/purchase.entity';
 import { SaleActivity } from 'src/sale/entities/sale-activity.entity';
+import { SaleItem } from 'src/sale/entities/sale-item.entity';
 import { Sale } from 'src/sale/entities/sale.entity';
 import { CustomerDetailDto } from '../dto/customer-detail.dto';
 import { toCustomerView } from '../helper';
@@ -20,8 +22,8 @@ export class CustomerFindDetailService extends CustomerBaseService {
       purchasedRaw,
       salePayments,
       purchasePayments,
-      openSalesRaw,
-      openPurchasesRaw,
+      openSales,
+      openPurchases,
     ] =
       await Promise.all([
         this.customersRepository.manager
@@ -89,27 +91,33 @@ export class CustomerFindDetailService extends CustomerBaseService {
           .andWhere('purchase.customerId = :customerId', { customerId: id })
           .getRawMany<{ paidAt: string; amount: string; notes: string | null }>(),
         this.customersRepository.manager
-          .createQueryBuilder()
-          .select('sale.id', 'id')
-          .addSelect('sale.remaining', 'remaining')
-          .addSelect('sale.soldAt', 'soldAt')
-          .from(Sale, 'sale')
+          .getRepository(Sale)
+          .createQueryBuilder('sale')
+          .leftJoinAndSelect('sale.items', 'saleItem', 'saleItem.isActive = true')
+          .leftJoinAndSelect('saleItem.item', 'inventoryItem', 'inventoryItem.isActive = true')
           .where('sale.isActive = true')
           .andWhere('sale.customerId = :customerId', { customerId: id })
           .andWhere('sale.remaining > 0')
           .orderBy('sale.soldAt', 'DESC')
-          .getRawMany<{ id: string; remaining: string; soldAt: string }>(),
+          .getMany(),
         this.customersRepository.manager
-          .createQueryBuilder()
-          .select('purchase.id', 'id')
-          .addSelect('purchase.remaining', 'remaining')
-          .addSelect('purchase.purchasedAt', 'purchasedAt')
-          .from(Purchase, 'purchase')
+          .getRepository(Purchase)
+          .createQueryBuilder('purchase')
+          .leftJoinAndSelect(
+            'purchase.items',
+            'purchaseItem',
+            'purchaseItem.isActive = true',
+          )
+          .leftJoinAndSelect(
+            'purchaseItem.item',
+            'inventoryItem',
+            'inventoryItem.isActive = true',
+          )
           .where('purchase.isActive = true')
           .andWhere('purchase.customerId = :customerId', { customerId: id })
           .andWhere('purchase.remaining > 0')
           .orderBy('purchase.purchasedAt', 'DESC')
-          .getRawMany<{ id: string; remaining: string; purchasedAt: string }>(),
+          .getMany(),
       ]);
 
     const activities = [
@@ -147,15 +155,43 @@ export class CustomerFindDetailService extends CustomerBaseService {
       lastPaymentAt: lastPayment?.paidAt.toISOString(),
       lastPaymentAmount: lastPayment?.amount,
       activities,
-      openSales: openSalesRaw.map((sale) => ({
-        id: Number(sale.id),
-        remaining: Number(sale.remaining),
-        soldAt: new Date(sale.soldAt),
+      openSales: openSales.map((sale) => ({
+        id: sale.id,
+        total: Number(sale.totalPrice ?? 0),
+        paid: Number(sale.paidNow ?? 0),
+        remaining: Number(sale.remaining ?? 0),
+        paymentType: sale.paymentType,
+        soldAt: sale.soldAt,
+        phones: (sale.items ?? [])
+          .filter((item: SaleItem) => item?.isActive && item.item?.isActive)
+          .map((item: SaleItem) => ({
+            brand: item.item.brand,
+            model: item.item.model,
+            imei: item.item.imei,
+            storage: item.item.storage,
+            condition: item.item.condition,
+            status: item.item.status,
+          })),
       })),
-      openPurchases: openPurchasesRaw.map((purchase) => ({
-        id: Number(purchase.id),
-        remaining: Number(purchase.remaining),
-        purchasedAt: new Date(purchase.purchasedAt),
+      openPurchases: openPurchases.map((purchase) => ({
+        id: purchase.id,
+        total: Number(purchase.totalPrice ?? 0),
+        paid: Number(purchase.paidNow ?? 0),
+        remaining: Number(purchase.remaining ?? 0),
+        paymentType: purchase.paymentType,
+        purchasedAt: purchase.purchasedAt,
+        phones: (purchase.items ?? [])
+          .filter(
+            (item: PurchaseItem) => item?.isActive && item.item?.isActive,
+          )
+          .map((item: PurchaseItem) => ({
+            brand: item.item.brand,
+            model: item.item.model,
+            imei: item.item.imei,
+            storage: item.item.storage,
+            condition: item.item.condition,
+            status: item.item.status,
+          })),
       })),
     };
   }

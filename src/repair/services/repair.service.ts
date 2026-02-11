@@ -13,6 +13,7 @@ import { UpdateRepairEntryDto } from '../dto/update-repair-entry.dto';
 import { RepairAddEntryService } from './repair-add-entry.service';
 import { RepairAvailableItemsService } from './repair-available-items.service';
 import { RepairCreateCaseService } from './repair-create-case.service';
+import { RepairDeleteEntryService } from './repair-delete-entry.service';
 import { RepairFindAllService } from './repair-find-all.service';
 import { RepairFindOneService } from './repair-find-one.service';
 import { RepairUpdateCaseService } from './repair-update-case.service';
@@ -28,6 +29,7 @@ export class RepairService {
     private readonly updateCaseService: RepairUpdateCaseService,
     private readonly addEntryService: RepairAddEntryService,
     private readonly updateEntryService: RepairUpdateEntryService,
+    private readonly deleteEntryService: RepairDeleteEntryService,
   ) {}
 
   async findAll(query: RepairListQueryDto): Promise<RepairListResponseDto> {
@@ -64,5 +66,9 @@ export class RepairService {
     dto: UpdateRepairEntryDto,
   ): Promise<RepairDetailViewDto> {
     return this.updateEntryService.execute(entryId, dto);
+  }
+
+  async deleteEntry(entryId: number): Promise<RepairDetailViewDto> {
+    return this.deleteEntryService.execute(entryId);
   }
 }

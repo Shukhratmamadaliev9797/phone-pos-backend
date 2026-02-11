@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   ParseIntPipe,
@@ -84,6 +85,15 @@ export class RepairController {
     @Body() dto: UpdateRepairEntryDto,
   ): Promise<RepairDetailViewDto> {
     return this.repairs.updateEntry(entryId, dto);
+  }
+
+  @Delete('entries/:entryId')
+  @Roles(UserRole.OWNER_ADMIN, UserRole.MANAGER, UserRole.TECHNICIAN)
+  @ApiOkResponse({ type: RepairDetailViewDto })
+  async deleteEntry(
+    @Param('entryId', ParseIntPipe) entryId: number,
+  ): Promise<RepairDetailViewDto> {
+    return this.repairs.deleteEntry(entryId);
   }
 
   @Get()

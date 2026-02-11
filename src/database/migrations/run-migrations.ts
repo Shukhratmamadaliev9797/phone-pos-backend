@@ -30,6 +30,7 @@ import { CreateSupportRequests1739090000000 } from './1739090000000-create-suppo
 import { AddSupportRequestReadStatus1739091000000 } from './1739091000000-add-support-request-read-status';
 import { CreateInventoryActivities1739093000000 } from './1739093000000-create-inventory-activities';
 import { ExtendInventoryActivitiesTypeEnum1739094000000 } from './1739094000000-extend-inventory-activities-type-enum';
+import { FixSaleItemUniqueActiveIndex1739195000000 } from './1739195000000-fix-sale-item-unique-active-index';
 
 const envPath = resolve(__dirname, '../../../.env');
 loadEnv({ path: envPath, override: true });
@@ -121,6 +122,7 @@ const dataSource = new DataSource({
     AddSupportRequestReadStatus1739091000000,
     CreateInventoryActivities1739093000000,
     ExtendInventoryActivitiesTypeEnum1739094000000,
+    FixSaleItemUniqueActiveIndex1739195000000,
   ],
   synchronize: false,
 });

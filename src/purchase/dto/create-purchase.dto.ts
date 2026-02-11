@@ -23,7 +23,7 @@ import {
 } from '../entities/purchase.entity';
 
 export enum InitialPurchaseItemStatus {
-  IN_STOCK = InventoryItemStatus.IN_STOCK,
+  READY_FOR_SALE = InventoryItemStatus.READY_FOR_SALE,
   IN_REPAIR = InventoryItemStatus.IN_REPAIR,
 }
 

@@ -269,14 +269,14 @@ export class PurchaseUpdateService extends PurchaseBaseService {
   private resolveInitialStatus(
     status: UpdatePurchaseItemDto['initialStatus'],
     condition: InventoryItemCondition,
-    fallback: InventoryItemStatus = InventoryItemStatus.IN_STOCK,
+    fallback: InventoryItemStatus = InventoryItemStatus.READY_FOR_SALE,
   ): InventoryItemStatus {
     if (status === InitialPurchaseItemStatus.IN_REPAIR) {
       return InventoryItemStatus.IN_REPAIR;
     }
 
-    if (status === InitialPurchaseItemStatus.IN_STOCK) {
-      return InventoryItemStatus.IN_STOCK;
+    if (status === InitialPurchaseItemStatus.READY_FOR_SALE) {
+      return InventoryItemStatus.READY_FOR_SALE;
     }
 
     if (condition === InventoryItemCondition.BROKEN) {

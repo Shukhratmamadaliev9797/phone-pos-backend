@@ -9,6 +9,7 @@ import { RepairAddEntryService } from './services/repair-add-entry.service';
 import { RepairAvailableItemsService } from './services/repair-available-items.service';
 import { RepairBaseService } from './services/repair-base.service';
 import { RepairCreateCaseService } from './services/repair-create-case.service';
+import { RepairDeleteEntryService } from './services/repair-delete-entry.service';
 import { RepairFindAllService } from './services/repair-find-all.service';
 import { RepairFindOneService } from './services/repair-find-one.service';
 import { RepairService } from './services/repair.service';
@@ -29,6 +30,7 @@ import { RepairUpdateEntryService } from './services/repair-update-entry.service
     RepairUpdateCaseService,
     RepairAddEntryService,
     RepairUpdateEntryService,
+    RepairDeleteEntryService,
     RepairService,
   ],
   exports: [RepairService],

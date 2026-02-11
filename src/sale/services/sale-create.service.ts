@@ -103,14 +103,37 @@ export class SaleCreateService extends SaleBaseService {
           );
           this.ensureSellableItem(inventory);
 
-          const saleItem = saleItemRepository.create({
-            sale: savedSale,
-            item: inventory,
-            salePrice: this.toMoney(this.parseNumeric(itemDto.salePrice)),
-            notes: itemDto.notes ?? null,
-          });
+          const salePrice = this.toMoney(this.parseNumeric(itemDto.salePrice));
+          const existingAny = await saleItemRepository
+            .createQueryBuilder('saleItem')
+            .where('saleItem.itemId = :itemId', { itemId: inventory.id })
+            .orderBy('saleItem.id', 'DESC')
+            .getOne();
 
-          await saleItemRepository.save(saleItem);
+          if (existingAny && existingAny.isActive) {
+            throw new ConflictException(
+              `Sale item for inventory item ${inventory.id} already exists`,
+            );
+          }
+
+          if (existingAny) {
+            existingAny.sale = savedSale;
+            existingAny.item = inventory;
+            existingAny.salePrice = salePrice;
+            existingAny.notes = itemDto.notes ?? null;
+            existingAny.isActive = true;
+            existingAny.deletedAt = null;
+            await saleItemRepository.save(existingAny);
+          } else {
+            const saleItem = saleItemRepository.create({
+              sale: savedSale,
+              item: inventory,
+              salePrice,
+              notes: itemDto.notes ?? null,
+            });
+
+            await saleItemRepository.save(saleItem);
+          }
 
           const previousStatus = inventory.status;
           inventory.status = InventoryItemStatus.SOLD;

@@ -1,6 +1,26 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { CustomerViewDto } from './customer-view.dto';
 
+export class CustomerTransactionPhoneDto {
+  @ApiProperty()
+  brand: string;
+
+  @ApiProperty()
+  model: string;
+
+  @ApiProperty()
+  imei: string;
+
+  @ApiProperty({ nullable: true })
+  storage: string | null;
+
+  @ApiProperty()
+  condition: string;
+
+  @ApiProperty()
+  status: string;
+}
+
 export class CustomerActivityDto {
   @ApiProperty()
   type: 'SALE_PAYMENT' | 'PURCHASE_PAYMENT';
@@ -20,10 +40,22 @@ export class CustomerOpenSaleRefDto {
   id: number;
 
   @ApiProperty()
+  total: number;
+
+  @ApiProperty()
+  paid: number;
+
+  @ApiProperty()
   remaining: number;
 
   @ApiProperty()
+  paymentType: string;
+
+  @ApiProperty()
   soldAt: Date;
+
+  @ApiProperty({ type: [CustomerTransactionPhoneDto] })
+  phones: CustomerTransactionPhoneDto[];
 }
 
 export class CustomerOpenPurchaseRefDto {
@@ -31,10 +63,22 @@ export class CustomerOpenPurchaseRefDto {
   id: number;
 
   @ApiProperty()
+  total: number;
+
+  @ApiProperty()
+  paid: number;
+
+  @ApiProperty()
   remaining: number;
 
   @ApiProperty()
+  paymentType: string;
+
+  @ApiProperty()
   purchasedAt: Date;
+
+  @ApiProperty({ type: [CustomerTransactionPhoneDto] })
+  phones: CustomerTransactionPhoneDto[];
 }
 
 export class CustomerDetailDto {

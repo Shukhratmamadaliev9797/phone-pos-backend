@@ -11,7 +11,7 @@ import { InventoryItem } from 'src/inventory/entities/inventory-item.entity';
 import { Sale } from './sale.entity';
 
 @Entity({ name: 'sale_items' })
-@Index(['item'], { unique: true })
+@Index(['item'], { unique: true, where: '"isActive" = true' })
 export class SaleItem extends Extender {
   @ManyToOne(() => Sale, { nullable: false, onDelete: 'CASCADE' })
   @JoinColumn({ name: 'saleId' })
