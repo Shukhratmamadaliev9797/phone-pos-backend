@@ -24,32 +24,32 @@ function envOrDefault(key: string, fallback: string): string {
 }
 
 function buildSeedUsers(): SeedUser[] {
-  const adminEmail = envOrDefault('ADMIN_EMAIL', 'admin@pos.local');
-  const adminPassword = envOrDefault('ADMIN_PASSWORD', 'AdminPos123');
+  const adminEmail = envOrDefault('ADMIN_EMAIL', 'admin@shop.com');
+  const adminPassword = envOrDefault('ADMIN_PASSWORD', 'Admin123');
 
   const users: SeedUser[] = [
     {
       email: adminEmail,
-      fullName: 'POS Owner Admin',
+      fullName: 'Joyce Waller',
       role: UserRole.OWNER_ADMIN,
       plainPassword: adminPassword,
       phoneNumber: '+998900000001',
       address: 'Tashkent, Yunusobod',
     },
-   
+
     {
-      email: 'cashier.1@pos.local',
-      fullName: 'Cashier One',
+      email: 'cashier@shop.com',
+      fullName: 'Taylor Bond',
       role: UserRole.CASHIER,
-      plainPassword: 'WorkerPos123',
+      plainPassword: 'Cashier123',
       phoneNumber: '+998900000002',
       address: 'Tashkent, Chilonzor',
     },
     {
-      email: 'tech.1@pos.local',
-      fullName: 'Technician One',
+      email: 'tech@shop.com',
+      fullName: 'Dani Johns',
       role: UserRole.TECHNICIAN,
-      plainPassword: 'WorkerPos123',
+      plainPassword: 'Tech123',
       phoneNumber: '+998900000003',
       address: 'Tashkent, Sergeli',
     },
@@ -80,7 +80,8 @@ export async function seedPosUsers(dataSource: DataSource): Promise<number> {
         isActive: true,
         deletedAt: null,
       })
-      .onConflict(`("email") DO UPDATE SET
+      .onConflict(
+        `("email") DO UPDATE SET
         "fullName" = EXCLUDED."fullName",
         "username" = EXCLUDED."username",
         "phoneNumber" = EXCLUDED."phoneNumber",
@@ -88,7 +89,8 @@ export async function seedPosUsers(dataSource: DataSource): Promise<number> {
         "role" = EXCLUDED."role",
         "passwordHash" = EXCLUDED."passwordHash",
         "isActive" = TRUE,
-        "deletedAt" = NULL`)
+        "deletedAt" = NULL`,
+      )
       .execute();
   }
 
