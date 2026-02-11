@@ -63,6 +63,39 @@ export async function seedPosUsers(dataSource: DataSource): Promise<number> {
 
   for (const user of users) {
     const passwordHash = await hashPassword(user.plainPassword);
+    const username = emailToUsername(user.email);
+
+    const existing = await dataSource
+      .createQueryBuilder()
+      .select('u.id', 'id')
+      .from('users', 'u')
+      .where('u.username = :username', { username })
+      .orWhere('u.email = :email', { email: user.email })
+      .orderBy('CASE WHEN u.username = :username THEN 0 ELSE 1 END', 'ASC')
+      .setParameter('username', username)
+      .limit(1)
+      .getRawOne<{ id: number }>();
+
+    if (existing?.id) {
+      await dataSource
+        .createQueryBuilder()
+        .update('users')
+        .set({
+          email: user.email,
+          username,
+          fullName: user.fullName,
+          phoneNumber: user.phoneNumber,
+          address: user.address,
+          role: user.role,
+          passwordHash,
+          refreshTokenVersion: 0,
+          isActive: true,
+          deletedAt: null,
+        })
+        .where('id = :id', { id: existing.id })
+        .execute();
+      continue;
+    }
 
     await dataSource
       .createQueryBuilder()
@@ -70,7 +103,7 @@ export async function seedPosUsers(dataSource: DataSource): Promise<number> {
       .into('users')
       .values({
         email: user.email,
-        username: emailToUsername(user.email),
+        username,
         fullName: user.fullName,
         phoneNumber: user.phoneNumber,
         address: user.address,
@@ -80,17 +113,6 @@ export async function seedPosUsers(dataSource: DataSource): Promise<number> {
         isActive: true,
         deletedAt: null,
       })
-      .onConflict(
-        `("email") DO UPDATE SET
-        "fullName" = EXCLUDED."fullName",
-        "username" = EXCLUDED."username",
-        "phoneNumber" = EXCLUDED."phoneNumber",
-        "address" = EXCLUDED."address",
-        "role" = EXCLUDED."role",
-        "passwordHash" = EXCLUDED."passwordHash",
-        "isActive" = TRUE,
-        "deletedAt" = NULL`,
-      )
       .execute();
   }
 
