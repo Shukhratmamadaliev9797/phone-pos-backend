@@ -29,18 +29,25 @@ import { PurchaseService } from './services/purchase.service';
 
 @ApiTags('Purchases')
 @ApiBearerAuth('access-token')
-@Roles(UserRole.OWNER_ADMIN, UserRole.MANAGER, UserRole.CASHIER)
+@Roles(
+  UserRole.OWNER_ADMIN,
+  UserRole.MANAGER,
+  UserRole.CASHIER,
+  UserRole.TECHNICIAN,
+)
 @Controller('api/purchases')
 export class PurchaseController {
   constructor(private readonly purchases: PurchaseService) {}
 
   @Post()
+  @Roles(UserRole.OWNER_ADMIN, UserRole.MANAGER, UserRole.CASHIER)
   @ApiCreatedResponse({ type: PurchaseDetailViewDto })
   async create(@Body() dto: CreatePurchaseDto): Promise<PurchaseDetailViewDto> {
     return this.purchases.create(dto);
   }
 
   @Patch(':id')
+  @Roles(UserRole.OWNER_ADMIN, UserRole.MANAGER, UserRole.CASHIER)
   @ApiOkResponse({ type: PurchaseDetailViewDto })
   async update(
     @Param('id', ParseIntPipe) id: number,
@@ -50,6 +57,7 @@ export class PurchaseController {
   }
 
   @Post(':id/payments')
+  @Roles(UserRole.OWNER_ADMIN, UserRole.MANAGER, UserRole.CASHIER)
   @ApiOkResponse({ type: PurchaseDetailViewDto })
   async addPayment(
     @Param('id', ParseIntPipe) id: number,
