@@ -7,6 +7,11 @@ export class MakeWorkerPhoneOptional1739532000000
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
+      ALTER TABLE "workers"
+      DROP CONSTRAINT IF EXISTS "UQ_workers_phoneNumber";
+    `);
+
+    await queryRunner.query(`
       DO $$
       DECLARE idx record;
       BEGIN
@@ -43,8 +48,8 @@ export class MakeWorkerPhoneOptional1739532000000
     `);
 
     await queryRunner.query(`
-      CREATE UNIQUE INDEX IF NOT EXISTS "IDX_workers_phoneNumber_unique"
-      ON "workers" ("phoneNumber");
+      ALTER TABLE "workers"
+      ADD CONSTRAINT "UQ_workers_phoneNumber" UNIQUE ("phoneNumber");
     `);
   }
 }

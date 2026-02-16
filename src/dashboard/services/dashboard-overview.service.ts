@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { DashboardOverviewDto } from '../dto/dashboard-overview.dto';
@@ -29,6 +29,8 @@ type CustomerBalanceRow = {
 
 @Injectable()
 export class DashboardOverviewService {
+  private readonly logger = new Logger(DashboardOverviewService.name);
+
   constructor(
     @InjectDataSource()
     private readonly dataSource: DataSource,
@@ -75,36 +77,36 @@ export class DashboardOverviewService {
       recentSales,
       recentPurchases,
     ] = await Promise.all([
-      this.sumSaleProfitByPeriod(currentFrom, currentTo),
-      this.sumPurchasedInventoryPriceByPeriod(currentFrom, currentTo),
-      this.sumRepairCostByPeriod(currentFrom, currentTo),
-      this.sumSalesRevenueByPeriod(currentFrom, currentTo),
-      this.sumSalaryPaymentsByPeriod(currentFrom, currentTo),
-      this.sumSaleProfitByPeriod(previousFrom, previousTo),
-      this.sumSalaryPaymentsByPeriod(previousFrom, previousTo),
-      this.sumPurchasedInventoryPriceByPeriod(previousFrom, previousTo),
-      this.sumRepairCostByPeriod(previousFrom, previousTo),
-      this.sumSalesRevenueByPeriod(previousFrom, previousTo),
-      this.sumMonthlySalaryTotal(),
-      this.sumMonthlySalaryPaidThisMonth(),
-      this.sumPercentSalaryRemaining(),
-      this.countSoldByPeriod(currentFrom, currentTo),
-      this.countPurchasedByPeriod(currentFrom, currentTo),
-      this.countInventoryItems(),
-      this.sumInventoryTotalPrice(),
-      this.countWorkersByPeriod(currentFrom, currentTo),
-      this.sumOutstandingSalesByPeriod(currentFrom, currentTo),
-      this.sumOutstandingPurchasesByPeriod(currentFrom, currentTo),
-      this.revenueDailySeries(),
-      this.revenueWeeklySeries(),
-      this.revenueMonthlySeries(),
-      this.revenueThreeMonthsSeries(),
-      this.revenueSixMonthsSeries(),
-      this.revenueCustomSeries(currentFrom, currentTo),
-      this.fetchTopDebts(),
-      this.fetchTopCredits(),
-      this.fetchRecentSales(),
-      this.fetchRecentPurchases(),
+      this.safe(() => this.sumSaleProfitByPeriod(currentFrom, currentTo), 0, 'sumSaleProfitByPeriod(current)'),
+      this.safe(() => this.sumPurchasedInventoryPriceByPeriod(currentFrom, currentTo), 0, 'sumPurchasedInventoryPriceByPeriod(current)'),
+      this.safe(() => this.sumRepairCostByPeriod(currentFrom, currentTo), 0, 'sumRepairCostByPeriod(current)'),
+      this.safe(() => this.sumSalesRevenueByPeriod(currentFrom, currentTo), 0, 'sumSalesRevenueByPeriod(current)'),
+      this.safe(() => this.sumSalaryPaymentsByPeriod(currentFrom, currentTo), 0, 'sumSalaryPaymentsByPeriod(current)'),
+      this.safe(() => this.sumSaleProfitByPeriod(previousFrom, previousTo), 0, 'sumSaleProfitByPeriod(previous)'),
+      this.safe(() => this.sumSalaryPaymentsByPeriod(previousFrom, previousTo), 0, 'sumSalaryPaymentsByPeriod(previous)'),
+      this.safe(() => this.sumPurchasedInventoryPriceByPeriod(previousFrom, previousTo), 0, 'sumPurchasedInventoryPriceByPeriod(previous)'),
+      this.safe(() => this.sumRepairCostByPeriod(previousFrom, previousTo), 0, 'sumRepairCostByPeriod(previous)'),
+      this.safe(() => this.sumSalesRevenueByPeriod(previousFrom, previousTo), 0, 'sumSalesRevenueByPeriod(previous)'),
+      this.safe(() => this.sumMonthlySalaryTotal(), 0, 'sumMonthlySalaryTotal'),
+      this.safe(() => this.sumMonthlySalaryPaidThisMonth(), 0, 'sumMonthlySalaryPaidThisMonth'),
+      this.safe(() => this.sumPercentSalaryRemaining(), 0, 'sumPercentSalaryRemaining'),
+      this.safe(() => this.countSoldByPeriod(currentFrom, currentTo), 0, 'countSoldByPeriod'),
+      this.safe(() => this.countPurchasedByPeriod(currentFrom, currentTo), 0, 'countPurchasedByPeriod'),
+      this.safe(() => this.countInventoryItems(), 0, 'countInventoryItems'),
+      this.safe(() => this.sumInventoryTotalPrice(), 0, 'sumInventoryTotalPrice'),
+      this.safe(() => this.countWorkersByPeriod(currentFrom, currentTo), 0, 'countWorkersByPeriod'),
+      this.safe(() => this.sumOutstandingSalesByPeriod(currentFrom, currentTo), 0, 'sumOutstandingSalesByPeriod'),
+      this.safe(() => this.sumOutstandingPurchasesByPeriod(currentFrom, currentTo), 0, 'sumOutstandingPurchasesByPeriod'),
+      this.safe(() => this.revenueDailySeries(), [] as SeriesRow[], 'revenueDailySeries'),
+      this.safe(() => this.revenueWeeklySeries(), [] as SeriesRow[], 'revenueWeeklySeries'),
+      this.safe(() => this.revenueMonthlySeries(), [] as SeriesRow[], 'revenueMonthlySeries'),
+      this.safe(() => this.revenueThreeMonthsSeries(), [] as SeriesRow[], 'revenueThreeMonthsSeries'),
+      this.safe(() => this.revenueSixMonthsSeries(), [] as SeriesRow[], 'revenueSixMonthsSeries'),
+      this.safe(() => this.revenueCustomSeries(currentFrom, currentTo), [] as SeriesRow[], 'revenueCustomSeries'),
+      this.safe(() => this.fetchTopDebts(), [] as CustomerBalanceRow[], 'fetchTopDebts'),
+      this.safe(() => this.fetchTopCredits(), [] as CustomerBalanceRow[], 'fetchTopCredits'),
+      this.safe(() => this.fetchRecentSales(), [] as RecentRow[], 'fetchRecentSales'),
+      this.safe(() => this.fetchRecentPurchases(), [] as RecentRow[], 'fetchRecentPurchases'),
     ]);
 
     const purchasesCurrentNumber = Number(purchaseCurrentRaw ?? 0);
@@ -223,6 +225,21 @@ export class DashboardOverviewService {
       return current === 0 ? 0 : 100;
     }
     return Number((((current - previous) / Math.abs(previous)) * 100).toFixed(2));
+  }
+
+  private async safe<T>(
+    run: () => Promise<T>,
+    fallback: T,
+    label: string,
+  ): Promise<T> {
+    try {
+      return await run();
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'Unknown dashboard query error';
+      this.logger.error(`${label} failed: ${message}`);
+      return fallback;
+    }
   }
 
   private async sumByPeriod(
