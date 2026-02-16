@@ -7,6 +7,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { CustomerEnsureService } from 'src/customer/services/customer-ensure.service';
 import { Customer } from 'src/customer/entities/customer.entity';
 import { InventoryItem, InventoryItemStatus } from 'src/inventory/entities/inventory-item.entity';
+import { Worker, WorkerSalaryType } from 'src/worker/entities/worker.entity';
 import {
   InventoryActivity,
   InventoryActivityType,
@@ -48,24 +49,49 @@ export class SaleCreateService extends SaleBaseService {
     this.ensureNoDuplicateItemReferences(dto);
 
     const totalPrice = dto.items.reduce(
-      (acc, item) => acc + this.parseNumeric(item.salePrice),
+      (acc, item) =>
+        acc +
+        this.ensureMoneyFitsPrecision(
+          this.parseNumeric(item.salePrice),
+          'items.salePrice',
+        ),
       0,
     );
+    this.ensureMoneyFitsPrecision(totalPrice, 'totalPrice');
 
+    const installmentMonths =
+      dto.paymentType === SalePaymentType.PAY_LATER
+        ? Math.max(1, dto.installmentMonths ?? 1)
+        : null;
+    const monthlyInstallmentAmount =
+      dto.paymentType === SalePaymentType.PAY_LATER
+        ? this.ensureMoneyFitsPrecision(
+            this.roundMoney(totalPrice / Math.max(1, installmentMonths ?? 1)),
+            'monthlyInstallmentAmount',
+          )
+        : null;
+    const firstPaymentNow =
+      dto.paymentType === SalePaymentType.PAY_LATER
+        ? dto.firstPaymentNow ?? true
+        : null;
     const paidNow =
       dto.paymentType === SalePaymentType.PAID_NOW
         ? totalPrice
-        : this.parseNumeric(dto.paidNow ?? 0);
+        : firstPaymentNow
+          ? monthlyInstallmentAmount ?? 0
+          : this.ensureMoneyFitsPrecision(
+              this.parseNumeric(dto.paidNow ?? 0),
+              'paidNow',
+            );
+    this.ensureMoneyFitsPrecision(paidNow, 'paidNow');
 
     const remaining = totalPrice - paidNow;
     this.ensureNonNegativeRemaining(remaining);
-    const requiresCustomer =
-      dto.paymentType === SalePaymentType.PAY_LATER || remaining > 0;
-    if (requiresCustomer && !dto.customerId && !dto.customer) {
-      throw new BadRequestException(
-        'Customer details are required for PAY_LATER or remaining balance',
-      );
-    }
+    this.ensureMoneyFitsPrecision(remaining, 'remaining');
+    const saleProfit = this.ensureMoneyFitsPrecision(
+      this.parseNumeric(dto.profit ?? 0),
+      'profit',
+    );
 
     let createdId: number;
 
@@ -76,20 +102,36 @@ export class SaleCreateService extends SaleBaseService {
           dto.customer,
           manager,
         );
+        const sellerWorker = await this.resolveSellerWorkerForSale(
+          dto.sellerWorkerId,
+          manager,
+        );
 
         const saleRepository = manager.getRepository(Sale);
         const saleItemRepository = manager.getRepository(SaleItem);
         const inventoryRepository = manager.getRepository(InventoryItem);
         const saleActivitiesRepository = manager.getRepository(SaleActivity);
+        const workerRepository = manager.getRepository(Worker);
 
         const sale = saleRepository.create({
           soldAt: this.parseDateOrNow(dto.soldAt),
           customer,
+          sellerWorker,
           paymentMethod: dto.paymentMethod,
           paymentType: dto.paymentType,
           totalPrice: this.toMoney(totalPrice),
           paidNow: this.toMoney(paidNow),
           remaining: this.toMoney(remaining),
+          installmentMonths,
+          firstPaymentNow,
+          monthlyInstallmentAmount:
+            monthlyInstallmentAmount !== null
+              ? this.toMoney(monthlyInstallmentAmount)
+              : null,
+          profit:
+            dto.profit !== undefined
+              ? this.toMoney(this.parseNumeric(dto.profit))
+              : null,
           notes: dto.notes ?? null,
         });
 
@@ -103,7 +145,11 @@ export class SaleCreateService extends SaleBaseService {
           );
           this.ensureSellableItem(inventory);
 
-          const salePrice = this.toMoney(this.parseNumeric(itemDto.salePrice));
+          const salePriceNumber = this.ensureMoneyFitsPrecision(
+            this.parseNumeric(itemDto.salePrice),
+            'items.salePrice',
+          );
+          const salePrice = this.toMoney(salePriceNumber);
           const existingAny = await saleItemRepository
             .createQueryBuilder('saleItem')
             .where('saleItem.itemId = :itemId', { itemId: inventory.id })
@@ -146,18 +192,68 @@ export class SaleCreateService extends SaleBaseService {
               fromStatus: previousStatus,
               toStatus: InventoryItemStatus.SOLD,
               notes: `Phone sold for ${this.toMoney(
-                this.parseNumeric(itemDto.salePrice),
+                salePriceNumber,
               )}`,
             }),
           );
         }
 
-        if (paidNow > 0) {
+        if (sellerWorker) {
+          const soldCountIncrement = dto.items.length;
+          const previousSoldCount = Number(sellerWorker.soldPhonesCount ?? 0);
+          const previousTotalSoldAmount = this.parseNumeric(
+            sellerWorker.totalSoldAmount ?? 0,
+          );
+          const previousTotalProfitAmount = this.parseNumeric(
+            sellerWorker.totalProfitAmount ?? 0,
+          );
+          const previousPercentSalary = this.parseNumeric(
+            sellerWorker.percentSalaryAccrued ?? 0,
+          );
+
+          sellerWorker.soldPhonesCount = previousSoldCount + soldCountIncrement;
+          sellerWorker.totalSoldAmount = this.toMoney(
+            previousTotalSoldAmount + totalPrice,
+          );
+          sellerWorker.totalProfitAmount = this.toMoney(
+            previousTotalProfitAmount + saleProfit,
+          );
+
+          if (sellerWorker.salaryType === WorkerSalaryType.PERCENT) {
+            const percent = this.parseNumeric(sellerWorker.salaryPercent ?? 0);
+            const commission = this.roundMoney((saleProfit * percent) / 100);
+            sellerWorker.percentSalaryAccrued = this.toMoney(
+              previousPercentSalary + commission,
+            );
+          }
+
+          await workerRepository.save(sellerWorker);
+        }
+
+        if (dto.paymentType === SalePaymentType.PAID_NOW) {
           const activity = saleActivitiesRepository.create({
             sale: savedSale,
             paidAt: savedSale.soldAt,
             amount: this.toMoney(paidNow),
-            notes: 'Initial payment',
+            notes: 'Full payment',
+          });
+          await saleActivitiesRepository.save(activity);
+        } else {
+          const months = installmentMonths ?? 1;
+          const monthlyAmount = monthlyInstallmentAmount ?? 0;
+          const note = firstPaymentNow
+            ? `First month payment: ${this.toMoney(paidNow)}; Remaining: ${this.toMoney(
+                remaining,
+              )}; Installment: ${months} x ${this.toMoney(monthlyAmount)}`
+            : `Installment plan: ${months} x ${this.toMoney(
+                monthlyAmount,
+              )}; Remaining: ${this.toMoney(remaining)}`;
+
+          const activity = saleActivitiesRepository.create({
+            sale: savedSale,
+            paidAt: savedSale.soldAt,
+            amount: this.toMoney(paidNow),
+            notes: note,
           });
           await saleActivitiesRepository.save(activity);
         }
@@ -187,6 +283,29 @@ export class SaleCreateService extends SaleBaseService {
 
     const sale = await this.getActiveSaleWithItemsOrThrow(createdId);
     return toSaleDetailView(sale);
+  }
+
+  private async resolveSellerWorkerForSale(
+    sellerWorkerId: number | undefined,
+    manager: EntityManager,
+  ): Promise<Worker | null> {
+    if (!sellerWorkerId) {
+      return null;
+    }
+
+    const worker = await manager.getRepository(Worker).findOne({
+      where: { id: sellerWorkerId, isActive: true },
+    });
+
+    if (!worker) {
+      throw new BadRequestException('sellerWorkerId is invalid');
+    }
+
+    return worker;
+  }
+
+  private roundMoney(value: number): number {
+    return Math.round((value + Number.EPSILON) * 100) / 100;
   }
 
   private async resolveCustomerForSale(

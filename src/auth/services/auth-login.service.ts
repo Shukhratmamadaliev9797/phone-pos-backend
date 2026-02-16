@@ -8,11 +8,11 @@ import { ConfigService } from '@nestjs/config';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { AuthResultDto } from '../dto/auth-result.dto';
-import { LoginDto, LoginRole } from '../dto/login.dto';
+import { LoginDto } from '../dto/login.dto';
 import { toAuthResult, verifyPassword } from '../helper';
 import { AuthBaseService } from './auth-base.service';
 import { AuthSigningService } from './auth-signing.service';
-import { User, UserRole } from 'src/user/user/entities/user.entity';
+import { User } from 'src/user/user/entities/user.entity';
 
 @Injectable()
 export class AuthLoginService extends AuthBaseService {
@@ -49,19 +49,6 @@ export class AuthLoginService extends AuthBaseService {
 
     if (!isPasswordValid) {
       throw new UnauthorizedException('Invalid credentials');
-    }
-
-    const expectedRole =
-      dto.role === LoginRole.ADMIN
-        ? UserRole.OWNER_ADMIN
-        : dto.role === LoginRole.CASHIER
-          ? UserRole.CASHIER
-          : UserRole.TECHNICIAN;
-
-    if (user.role !== expectedRole) {
-      throw new UnauthorizedException(
-        'Selected role does not match this account',
-      );
     }
 
     user.lastLoginAt = new Date();

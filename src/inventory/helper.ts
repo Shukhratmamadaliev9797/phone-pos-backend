@@ -38,9 +38,11 @@ export function toInventoryActivityView(
 
 export function toInventoryItemDetailView(
   item: InventoryItem,
+  repairCost: number = 0,
 ): InventoryItemDetailViewDto {
   return {
     ...toInventoryItemView(item),
+    repairCost,
     activities: (item.activities ?? []).map(toInventoryActivityView),
   };
 }

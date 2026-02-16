@@ -32,5 +32,6 @@ export class InventoryActivityViewDto {
 }
 
 export class InventoryItemDetailViewDto extends InventoryItemViewDto {
+  repairCost?: number;
   activities: InventoryActivityViewDto[];
 }

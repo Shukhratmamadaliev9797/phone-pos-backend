@@ -17,6 +17,8 @@ import { Sale, SalePaymentType } from '../entities/sale.entity';
 
 @Injectable()
 export class SaleBaseService {
+  protected static readonly MAX_MONEY_ABS = 9_999_999_999.99;
+
   constructor(
     @InjectRepository(Sale)
     protected readonly salesRepository: Repository<Sale>,
@@ -40,6 +42,16 @@ export class SaleBaseService {
       throw new BadRequestException('Numeric value is invalid');
     }
     return numeric;
+  }
+
+  protected ensureMoneyFitsPrecision(value: number, field: string): number {
+    const rounded = Math.round((value + Number.EPSILON) * 100) / 100;
+    if (Math.abs(rounded) >= 10_000_000_000) {
+      throw new BadRequestException(
+        `${field} is too large. Max allowed is ${SaleBaseService.MAX_MONEY_ABS}.`,
+      );
+    }
+    return rounded;
   }
 
   protected parseDateOrNow(value?: string): Date {
@@ -217,15 +229,6 @@ export class SaleBaseService {
   protected ensureSellableItem(item: InventoryItem): void {
     if (item.saleId || item.status === InventoryItemStatus.SOLD) {
       throw new ConflictException(`Inventory item ${item.id} is already sold`);
-    }
-
-    if (
-      item.status !== InventoryItemStatus.IN_STOCK &&
-      item.status !== InventoryItemStatus.READY_FOR_SALE
-    ) {
-      throw new ConflictException(
-        `Inventory item ${item.id} is not sellable (status ${item.status})`,
-      );
     }
   }
 }

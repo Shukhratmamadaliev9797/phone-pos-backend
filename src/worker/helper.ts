@@ -8,16 +8,23 @@ import { Worker } from './entities/worker.entity';
 
 export function toWorkerView(worker: Worker): WorkerViewDto {
   return {
+    createdAt: worker.createdAt,
     id: worker.id,
     fullName: worker.fullName,
     phoneNumber: worker.phoneNumber,
     address: worker.address,
     monthlySalary: worker.monthlySalary,
+    salaryType: worker.salaryType,
+    salaryPercent: worker.salaryPercent,
     workerRole: worker.workerRole,
     hasDashboardAccess: worker.hasDashboardAccess,
     userId: worker.userId,
     loginEmail: worker.user?.email ?? null,
     notes: worker.notes,
+    soldPhonesCount: Number(worker.soldPhonesCount ?? 0),
+    totalSoldAmount: worker.totalSoldAmount,
+    totalProfitAmount: worker.totalProfitAmount,
+    percentSalaryAccrued: worker.percentSalaryAccrued,
   };
 }
 

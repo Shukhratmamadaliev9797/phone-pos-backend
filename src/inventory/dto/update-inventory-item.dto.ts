@@ -69,4 +69,10 @@ export class UpdateInventoryItemDto {
   @Type(() => Number)
   @Min(0)
   expectedSalePrice?: number | null;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @Min(0)
+  repairCost?: number | null;
 }

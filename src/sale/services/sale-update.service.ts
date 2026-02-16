@@ -49,11 +49,30 @@ export class SaleUpdateService extends SaleBaseService {
           dto.items && dto.items.length > 0
             ? await this.applyItemsUpdate(sale, dto.items, manager)
             : await this.getSaleTotal(sale.id, manager);
+        this.ensureMoneyFitsPrecision(totalPrice, 'totalPrice');
         const paymentType = dto.paymentType ?? sale.paymentType;
+        const installmentMonths =
+          paymentType === SalePaymentType.PAY_LATER
+            ? Math.max(1, dto.installmentMonths ?? sale.installmentMonths ?? 1)
+            : null;
+        const monthlyInstallmentAmount =
+          paymentType === SalePaymentType.PAY_LATER
+            ? this.ensureMoneyFitsPrecision(
+                this.roundMoney(totalPrice / Math.max(1, installmentMonths ?? 1)),
+                'monthlyInstallmentAmount',
+              )
+            : null;
+        const firstPaymentNow =
+          paymentType === SalePaymentType.PAY_LATER
+            ? (dto.firstPaymentNow ?? sale.firstPaymentNow ?? true)
+            : null;
         const paidNow =
-          dto.paidNow !== undefined
-            ? this.parseNumeric(dto.paidNow)
-            : this.parseNumeric(sale.paidNow);
+          paymentType === SalePaymentType.PAID_NOW
+            ? totalPrice
+            : firstPaymentNow
+              ? monthlyInstallmentAmount ?? 0
+              : 0;
+        this.ensureMoneyFitsPrecision(paidNow, 'paidNow');
 
         if (paymentType === SalePaymentType.PAID_NOW && paidNow < totalPrice) {
           throw new BadRequestException(
@@ -63,6 +82,7 @@ export class SaleUpdateService extends SaleBaseService {
 
         const remaining = totalPrice - paidNow;
         this.ensureNonNegativeRemaining(remaining);
+        this.ensureMoneyFitsPrecision(remaining, 'remaining');
 
         const customer = await this.resolveCustomerForUpdate(
           manager,
@@ -71,8 +91,6 @@ export class SaleUpdateService extends SaleBaseService {
           dto.customer,
         );
 
-        this.ensureCustomerRequirement(paymentType, customer?.id, remaining);
-
         sale.soldAt = dto.soldAt ? this.parseDateOrNow(dto.soldAt) : sale.soldAt;
         sale.customer = customer;
         sale.paymentMethod = dto.paymentMethod ?? sale.paymentMethod;
@@ -80,9 +98,17 @@ export class SaleUpdateService extends SaleBaseService {
         sale.totalPrice = this.toMoney(totalPrice);
         sale.paidNow = this.toMoney(paidNow);
         sale.remaining = this.toMoney(remaining);
+        sale.installmentMonths = installmentMonths;
+        sale.firstPaymentNow = firstPaymentNow;
+        sale.monthlyInstallmentAmount =
+          monthlyInstallmentAmount !== null
+            ? this.toMoney(monthlyInstallmentAmount)
+            : null;
         sale.notes = dto.notes ?? sale.notes;
 
         await manager.getRepository(Sale).save(sale);
+
+        await this.keepOnlyFirstPaymentActivity(sale.id, manager, sale);
       });
     } catch (error) {
       if (error instanceof QueryFailedError) {
@@ -99,6 +125,53 @@ export class SaleUpdateService extends SaleBaseService {
 
     const sale = await this.getActiveSaleWithItemsOrThrow(id);
     return toSaleDetailView(sale);
+  }
+
+  private roundMoney(value: number): number {
+    return Math.round((value + Number.EPSILON) * 100) / 100;
+  }
+
+  private async keepOnlyFirstPaymentActivity(
+    saleId: number,
+    manager: EntityManager,
+    sale: Sale,
+  ): Promise<void> {
+    const activities = await manager.getRepository(SaleActivity).find({
+      where: {
+        sale: { id: saleId },
+        isActive: true,
+      },
+      order: {
+        paidAt: 'ASC',
+        id: 'ASC',
+      },
+    });
+
+    if (activities.length <= 1) {
+      return;
+    }
+
+    const firstActivity = activities[0];
+    const removable = activities.slice(1);
+    const now = new Date();
+
+    for (const activity of removable) {
+      activity.isActive = false;
+      activity.deletedAt = now;
+    }
+    await manager.getRepository(SaleActivity).save(removable);
+
+    const firstAmount = this.parseNumeric(firstActivity.amount);
+    const total = this.parseNumeric(sale.totalPrice);
+    const nextPaidNow = Math.min(Math.max(firstAmount, 0), total);
+    const nextRemaining = total - nextPaidNow;
+
+    sale.paidNow = this.toMoney(nextPaidNow);
+    sale.remaining = this.toMoney(nextRemaining);
+    sale.paymentType =
+      nextRemaining <= 0 ? SalePaymentType.PAID_NOW : SalePaymentType.PAY_LATER;
+
+    await manager.getRepository(Sale).save(sale);
   }
 
   private async getSaleTotal(
@@ -153,11 +226,20 @@ export class SaleUpdateService extends SaleBaseService {
 
       const current = existingByItemId.get(inventory.id);
       if (current) {
-        current.salePrice = this.toMoney(this.parseNumeric(itemDto.salePrice));
+        const salePriceNumber = this.ensureMoneyFitsPrecision(
+          this.parseNumeric(itemDto.salePrice),
+          'items.salePrice',
+        );
+        current.salePrice = this.toMoney(salePriceNumber);
         current.notes = itemDto.notes ?? null;
         await saleItemsRepository.save(current);
       } else {
-        const salePrice = this.toMoney(this.parseNumeric(itemDto.salePrice));
+        const salePrice = this.toMoney(
+          this.ensureMoneyFitsPrecision(
+            this.parseNumeric(itemDto.salePrice),
+            'items.salePrice',
+          ),
+        );
         const existingAny = await saleItemsRepository
           .createQueryBuilder('saleItem')
           .where('saleItem.itemId = :itemId', { itemId: inventory.id })
@@ -201,15 +283,20 @@ export class SaleUpdateService extends SaleBaseService {
       const inventory = entry.item;
       inventory.sale = null;
       if (inventory.status === InventoryItemStatus.SOLD) {
-        inventory.status = InventoryItemStatus.READY_FOR_SALE;
+        inventory.status = InventoryItemStatus.IN_STOCK;
       }
       await inventoryRepository.save(inventory);
     }
 
-    return items.reduce(
-      (sum, item) => sum + this.parseNumeric(item.salePrice),
-      0,
-    );
+    return items.reduce((sum, item) => {
+      const salePrice = this.ensureMoneyFitsPrecision(
+        this.parseNumeric(item.salePrice),
+        'items.salePrice',
+      );
+      const next = sum + salePrice;
+      this.ensureMoneyFitsPrecision(next, 'totalPrice');
+      return next;
+    }, 0);
   }
 
   private ensureNoDuplicateItems(items: UpdateSaleItemDto[]): void {

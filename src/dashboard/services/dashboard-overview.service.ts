@@ -1,7 +1,9 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectDataSource } from '@nestjs/typeorm';
 import { DataSource } from 'typeorm';
 import { DashboardOverviewDto } from '../dto/dashboard-overview.dto';
+
+export type DashboardKpiPeriod = 'daily' | 'weekly' | 'monthly' | 'custom';
 
 type NumericRow = {
   value: string | null;
@@ -32,76 +34,101 @@ export class DashboardOverviewService {
     private readonly dataSource: DataSource,
   ) {}
 
-  async execute(): Promise<DashboardOverviewDto> {
+  async execute(
+    kpiPeriod: DashboardKpiPeriod = 'monthly',
+    customFrom?: string,
+    customTo?: string,
+  ): Promise<DashboardOverviewDto> {
     const now = new Date();
-    const currentMonthStart = new Date(
-      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
-    );
-    const previousMonthStart = new Date(
-      Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1),
-    );
+    const { currentFrom, currentTo, previousFrom, previousTo } =
+      this.resolveKpiRange(kpiPeriod, now, customFrom, customTo);
 
     const [
-      salesCurrent,
-      salesPrevious,
-      purchasesCurrent,
-      purchasesPrevious,
-      repairsCurrent,
-      repairsPrevious,
-      soldCurrent,
-      soldPrevious,
+      profitCurrentRaw,
+      purchaseCurrentRaw,
+      repairCurrentRaw,
+      salesRevenueCurrentRaw,
+      salaryPaidCurrentRaw,
+      profitPreviousRaw,
+      salaryPaidPreviousRaw,
+      purchasePreviousRaw,
+      repairPreviousRaw,
+      salesRevenuePreviousRaw,
+      monthlySalaryTotalRaw,
+      monthlyPaidThisMonthRaw,
+      percentSalaryRemainingRaw,
+      soldPhonesCountRaw,
+      purchasedPhonesCountRaw,
+      inventoryCountRaw,
+      inventoryTotalPriceRaw,
+      workersCountRaw,
       debtTotal,
       creditTotal,
+      dailyRevenue,
       weeklyRevenue,
       monthlyRevenue,
-      yearlyRevenue,
+      threeMonthsRevenue,
+      sixMonthsRevenue,
+      customRevenue,
       topDebtCustomers,
       topCreditCustomers,
       recentSales,
       recentPurchases,
     ] = await Promise.all([
-      this.sumByPeriod('sales', 'soldAt', currentMonthStart, now),
-      this.sumByPeriod('sales', 'soldAt', previousMonthStart, currentMonthStart),
-      this.sumByPeriod('purchases', 'purchasedAt', currentMonthStart, now),
-      this.sumByPeriod(
-        'purchases',
-        'purchasedAt',
-        previousMonthStart,
-        currentMonthStart,
-      ),
-      this.sumByPeriod('repairs', 'repairedAt', currentMonthStart, now),
-      this.sumByPeriod(
-        'repairs',
-        'repairedAt',
-        previousMonthStart,
-        currentMonthStart,
-      ),
-      this.countSoldByPeriod(currentMonthStart, now),
-      this.countSoldByPeriod(previousMonthStart, currentMonthStart),
-      this.sumOutstanding('sales'),
-      this.sumOutstanding('purchases'),
+      this.sumSaleProfitByPeriod(currentFrom, currentTo),
+      this.sumPurchasedInventoryPriceByPeriod(currentFrom, currentTo),
+      this.sumRepairCostByPeriod(currentFrom, currentTo),
+      this.sumSalesRevenueByPeriod(currentFrom, currentTo),
+      this.sumSalaryPaymentsByPeriod(currentFrom, currentTo),
+      this.sumSaleProfitByPeriod(previousFrom, previousTo),
+      this.sumSalaryPaymentsByPeriod(previousFrom, previousTo),
+      this.sumPurchasedInventoryPriceByPeriod(previousFrom, previousTo),
+      this.sumRepairCostByPeriod(previousFrom, previousTo),
+      this.sumSalesRevenueByPeriod(previousFrom, previousTo),
+      this.sumMonthlySalaryTotal(),
+      this.sumMonthlySalaryPaidThisMonth(),
+      this.sumPercentSalaryRemaining(),
+      this.countSoldByPeriod(currentFrom, currentTo),
+      this.countPurchasedByPeriod(currentFrom, currentTo),
+      this.countInventoryItems(),
+      this.sumInventoryTotalPrice(),
+      this.countWorkersByPeriod(currentFrom, currentTo),
+      this.sumOutstandingSalesByPeriod(currentFrom, currentTo),
+      this.sumOutstandingPurchasesByPeriod(currentFrom, currentTo),
+      this.revenueDailySeries(),
       this.revenueWeeklySeries(),
       this.revenueMonthlySeries(),
-      this.revenueYearlySeries(),
+      this.revenueThreeMonthsSeries(),
+      this.revenueSixMonthsSeries(),
+      this.revenueCustomSeries(currentFrom, currentTo),
       this.fetchTopDebts(),
       this.fetchTopCredits(),
       this.fetchRecentSales(),
       this.fetchRecentPurchases(),
     ]);
 
-    const salesCurrentNumber = Number(salesCurrent ?? 0);
-    const salesPreviousNumber = Number(salesPrevious ?? 0);
-    const purchasesCurrentNumber = Number(purchasesCurrent ?? 0);
-    const purchasesPreviousNumber = Number(purchasesPrevious ?? 0);
-    const repairsCurrentNumber = Number(repairsCurrent ?? 0);
-    const repairsPreviousNumber = Number(repairsPrevious ?? 0);
-    const soldCurrentNumber = Number(soldCurrent ?? 0);
-    const soldPreviousNumber = Number(soldPrevious ?? 0);
+    const purchasesCurrentNumber = Number(purchaseCurrentRaw ?? 0);
+    const purchasesPreviousNumber = Number(purchasePreviousRaw ?? 0);
+    const repairsCurrentNumber = Number(repairCurrentRaw ?? 0);
+    const repairsPreviousNumber = Number(repairPreviousRaw ?? 0);
+    const soldCurrentNumber = Number(salesRevenueCurrentRaw ?? 0);
+    const soldPreviousNumber = Number(salesRevenuePreviousRaw ?? 0);
+    const monthlySalaryTotal = Number(monthlySalaryTotalRaw ?? 0);
+    const monthlyPaidThisMonth = Number(monthlyPaidThisMonthRaw ?? 0);
+    const percentSalaryRemaining = Number(percentSalaryRemainingRaw ?? 0);
+    const monthlyRemaining = Math.max(0, monthlySalaryTotal - monthlyPaidThisMonth);
+    const totalSalaryRemaining = monthlyRemaining + percentSalaryRemaining;
+    const salaryPaidTotal = Number(salaryPaidCurrentRaw ?? 0);
+    const soldPhonesCount = Number(soldPhonesCountRaw ?? 0);
+    const purchasedPhonesCount = Number(purchasedPhonesCountRaw ?? 0);
+    const inventoryCount = Number(inventoryCountRaw ?? 0);
+    const inventoryTotalPrice = Number(inventoryTotalPriceRaw ?? 0);
+    const workersCount = Number(workersCountRaw ?? 0);
 
     const profitCurrent =
-      salesCurrentNumber - purchasesCurrentNumber - repairsCurrentNumber;
+      Number(profitCurrentRaw ?? 0) - Number(salaryPaidCurrentRaw ?? 0);
     const profitPrevious =
-      salesPreviousNumber - purchasesPreviousNumber - repairsPreviousNumber;
+      Number(profitPreviousRaw ?? 0) - Number(salaryPaidPreviousRaw ?? 0);
 
     return {
       kpis: {
@@ -117,7 +144,26 @@ export class DashboardOverviewService {
         debt: Number(debtTotal ?? 0),
         credit: Number(creditTotal ?? 0),
       },
+      salarySummary: {
+        paid: salaryPaidTotal,
+        remaining: totalSalaryRemaining,
+      },
+      phoneSummary: {
+        sold: soldPhonesCount,
+        purchased: purchasedPhonesCount,
+      },
+      inventorySummary: {
+        count: inventoryCount,
+        totalPrice: inventoryTotalPrice,
+      },
+      workerSummary: {
+        count: workersCount,
+      },
       salesRevenue: {
+        daily: dailyRevenue.map((row) => ({
+          name: row.label,
+          revenue: Number(row.revenue),
+        })),
         weekly: weeklyRevenue.map((row) => ({
           name: row.label,
           revenue: Number(row.revenue),
@@ -126,7 +172,15 @@ export class DashboardOverviewService {
           name: row.label,
           revenue: Number(row.revenue),
         })),
-        yearly: yearlyRevenue.map((row) => ({
+        threeMonths: threeMonthsRevenue.map((row) => ({
+          name: row.label,
+          revenue: Number(row.revenue),
+        })),
+        sixMonths: sixMonthsRevenue.map((row) => ({
+          name: row.label,
+          revenue: Number(row.revenue),
+        })),
+        custom: customRevenue.map((row) => ({
           name: row.label,
           revenue: Number(row.revenue),
         })),
@@ -201,6 +255,72 @@ export class DashboardOverviewService {
     return Number((row[0] as NumericRow)?.value ?? 0);
   }
 
+  private async sumSaleProfitByPeriod(from: Date, to: Date): Promise<number> {
+    const rows = await this.dataSource.query(
+      `SELECT COALESCE(SUM("profit"), 0) AS value
+       FROM "sales"
+       WHERE "isActive" = true
+         AND "soldAt" >= $1
+         AND "soldAt" < $2`,
+      [from.toISOString(), to.toISOString()],
+    );
+    return Number((rows[0] as NumericRow)?.value ?? 0);
+  }
+
+  private async sumPurchasedInventoryPriceByPeriod(
+    from: Date,
+    to: Date,
+  ): Promise<number> {
+    const rows = await this.dataSource.query(
+      `SELECT COALESCE(SUM(ii."expectedSalePrice"), 0) AS value
+       FROM "inventory_items" ii
+       WHERE ii."isActive" = true
+         AND ii."purchaseId" IS NOT NULL
+         AND ii."createdAt" >= $1
+         AND ii."createdAt" < $2`,
+      [from.toISOString(), to.toISOString()],
+    );
+    return Number((rows[0] as NumericRow)?.value ?? 0);
+  }
+
+  private async sumRepairCostByPeriod(from: Date, to: Date): Promise<number> {
+    const rows = await this.dataSource.query(
+      `SELECT COALESCE(SUM("costTotal"), 0) AS value
+       FROM "repairs" r
+       INNER JOIN "inventory_items" ii ON ii."id" = r."itemId"
+       WHERE r."isActive" = true
+         AND ii."isActive" = true
+         AND r."repairedAt" >= $1
+         AND r."repairedAt" < $2`,
+      [from.toISOString(), to.toISOString()],
+    );
+    return Number((rows[0] as NumericRow)?.value ?? 0);
+  }
+
+  private async sumSalesRevenueByPeriod(from: Date, to: Date): Promise<number> {
+    const rows = await this.dataSource.query(
+      `SELECT COALESCE(SUM("totalPrice"), 0) AS value
+       FROM "sales"
+       WHERE "isActive" = true
+         AND "soldAt" >= $1
+         AND "soldAt" < $2`,
+      [from.toISOString(), to.toISOString()],
+    );
+    return Number((rows[0] as NumericRow)?.value ?? 0);
+  }
+
+  private async sumSalaryPaymentsByPeriod(from: Date, to: Date): Promise<number> {
+    const rows = await this.dataSource.query(
+      `SELECT COALESCE(SUM("amountPaid"), 0) AS value
+       FROM "worker_salary_payments"
+       WHERE "isActive" = true
+         AND "paidAt" >= $1
+         AND "paidAt" < $2`,
+      [from.toISOString(), to.toISOString()],
+    );
+    return Number((rows[0] as NumericRow)?.value ?? 0);
+  }
+
   private async countSoldByPeriod(from: Date, to: Date): Promise<number> {
     const rows = await this.dataSource.query(
       `SELECT COUNT(*) AS value
@@ -215,16 +335,223 @@ export class DashboardOverviewService {
     return Number((rows[0] as NumericRow)?.value ?? 0);
   }
 
-  private async sumOutstanding(
-    table: 'sales' | 'purchases',
-  ): Promise<number> {
+  private async countPurchasedByPeriod(from: Date, to: Date): Promise<number> {
     const rows = await this.dataSource.query(
-      `SELECT COALESCE(SUM("remaining"), 0) AS value
-       FROM "${table}"
-       WHERE "isActive" = true
-         AND "remaining" > 0`,
+      `SELECT COUNT(*) AS value
+       FROM "inventory_items" ii
+       WHERE ii."isActive" = true
+         AND ii."purchaseId" IS NOT NULL
+         AND ii."createdAt" >= $1
+         AND ii."createdAt" < $2`,
+      [from.toISOString(), to.toISOString()],
     );
     return Number((rows[0] as NumericRow)?.value ?? 0);
+  }
+
+  private async countInventoryItems(): Promise<number> {
+    const rows = await this.dataSource.query(
+      `SELECT COUNT(*) AS value
+       FROM "inventory_items"
+       WHERE "isActive" = true`,
+    );
+    return Number((rows[0] as NumericRow)?.value ?? 0);
+  }
+
+  private async sumInventoryTotalPrice(): Promise<number> {
+    const rows = await this.dataSource.query(
+      `SELECT COALESCE(SUM("expectedSalePrice"), 0) AS value
+       FROM "inventory_items"
+       WHERE "isActive" = true`,
+    );
+    return Number((rows[0] as NumericRow)?.value ?? 0);
+  }
+
+  private async countWorkersByPeriod(from: Date, to: Date): Promise<number> {
+    const rows = await this.dataSource.query(
+      `SELECT COUNT(*) AS value
+       FROM "workers"
+       WHERE "deletedAt" IS NULL
+         AND COALESCE("isActive", true) = true
+         AND "createdAt" >= $1
+         AND "createdAt" < $2`,
+      [from.toISOString(), to.toISOString()],
+    );
+    return Number((rows[0] as NumericRow)?.value ?? 0);
+  }
+
+  private resolveKpiRange(
+    period: DashboardKpiPeriod,
+    now: Date,
+    customFrom?: string,
+    customTo?: string,
+  ): {
+    currentFrom: Date;
+    currentTo: Date;
+    previousFrom: Date;
+    previousTo: Date;
+  } {
+    if (period === 'custom') {
+      if (!customFrom || !customTo) {
+        throw new BadRequestException('from and to are required for custom range');
+      }
+
+      const parsedFrom = new Date(customFrom);
+      const parsedTo = new Date(customTo);
+
+      if (
+        Number.isNaN(parsedFrom.getTime()) ||
+        Number.isNaN(parsedTo.getTime())
+      ) {
+        throw new BadRequestException('Invalid from/to date format');
+      }
+
+      const currentFrom = new Date(
+        Date.UTC(
+          parsedFrom.getUTCFullYear(),
+          parsedFrom.getUTCMonth(),
+          parsedFrom.getUTCDate(),
+        ),
+      );
+      const currentTo = new Date(
+        Date.UTC(
+          parsedTo.getUTCFullYear(),
+          parsedTo.getUTCMonth(),
+          parsedTo.getUTCDate() + 1,
+        ),
+      );
+
+      if (currentTo <= currentFrom) {
+        throw new BadRequestException('to must be greater than or equal to from');
+      }
+
+      const windowMs = currentTo.getTime() - currentFrom.getTime();
+      const previousTo = new Date(currentFrom);
+      const previousFrom = new Date(currentFrom.getTime() - windowMs);
+
+      return { currentFrom, currentTo, previousFrom, previousTo };
+    }
+
+    const currentTo = now;
+
+    if (period === 'daily') {
+      const currentFrom = new Date(
+        Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+      );
+      const previousFrom = new Date(currentFrom);
+      previousFrom.setUTCDate(previousFrom.getUTCDate() - 1);
+      return { currentFrom, currentTo, previousFrom, previousTo: currentFrom };
+    }
+
+    if (period === 'weekly') {
+      const currentFrom = new Date(currentTo);
+      currentFrom.setUTCDate(currentFrom.getUTCDate() - 7);
+      const previousFrom = new Date(currentFrom);
+      previousFrom.setUTCDate(previousFrom.getUTCDate() - 7);
+      return { currentFrom, currentTo, previousFrom, previousTo: currentFrom };
+    }
+
+    if (period === 'monthly') {
+      const currentFrom = new Date(
+        Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
+      );
+      const previousFrom = new Date(
+        Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1),
+      );
+      return { currentFrom, currentTo, previousFrom, previousTo: currentFrom };
+    }
+
+    const currentFrom = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1),
+    );
+    const previousFrom = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - 1, 1),
+    );
+    return { currentFrom, currentTo, previousFrom, previousTo: currentFrom };
+  }
+
+  private async sumOutstandingSalesByPeriod(
+    from: Date,
+    to: Date,
+  ): Promise<number> {
+    const rows = await this.dataSource.query(
+      `SELECT COALESCE(SUM(s."remaining"), 0) AS value
+       FROM "sales" s
+       WHERE "isActive" = true
+         AND s."paymentType" = 'PAY_LATER'
+         AND s."remaining" > 0
+         AND s."soldAt" >= $1
+         AND s."soldAt" < $2`,
+      [from.toISOString(), to.toISOString()],
+    );
+    return Number((rows[0] as NumericRow)?.value ?? 0);
+  }
+
+  private async sumOutstandingPurchasesByPeriod(
+    from: Date,
+    to: Date,
+  ): Promise<number> {
+    const rows = await this.dataSource.query(
+      `SELECT COALESCE(SUM(p."remaining"), 0) AS value
+       FROM "purchases" p
+       WHERE p."isActive" = true
+         AND p."paymentType" = 'PAY_LATER'
+         AND p."remaining" > 0
+         AND p."purchasedAt" >= $1
+         AND p."purchasedAt" < $2
+         AND EXISTS (
+           SELECT 1
+           FROM "inventory_items" ii
+           WHERE ii."purchaseId" = p."id"
+             AND ii."isActive" = true
+         )`,
+      [from.toISOString(), to.toISOString()],
+    );
+    return Number((rows[0] as NumericRow)?.value ?? 0);
+  }
+
+  private async sumMonthlySalaryTotal(): Promise<number> {
+    const rows = await this.dataSource.query(
+      `SELECT COALESCE(SUM("monthlySalary"), 0) AS value
+       FROM "workers"
+       WHERE "isActive" = true
+         AND "salaryType" = 'MONTHLY'`,
+    );
+    return Number((rows[0] as NumericRow)?.value ?? 0);
+  }
+
+  private async sumMonthlySalaryPaidThisMonth(): Promise<number> {
+    const rows = await this.dataSource.query(
+      `SELECT COALESCE(SUM(wsp."amountPaid"), 0) AS value
+       FROM "worker_salary_payments" wsp
+       INNER JOIN "workers" w ON w."id" = wsp."workerId"
+       WHERE wsp."isActive" = true
+         AND w."isActive" = true
+         AND w."salaryType" = 'MONTHLY'
+         AND DATE_TRUNC('month', wsp."paidAt") = DATE_TRUNC('month', NOW())`,
+    );
+    return Number((rows[0] as NumericRow)?.value ?? 0);
+  }
+
+  private async sumPercentSalaryRemaining(): Promise<number> {
+    const rows = await this.dataSource.query(
+      `SELECT COALESCE(SUM("percentSalaryAccrued"), 0) AS value
+       FROM "workers"
+       WHERE "isActive" = true
+         AND "salaryType" = 'PERCENT'`,
+    );
+    return Number((rows[0] as NumericRow)?.value ?? 0);
+  }
+
+  private async revenueDailySeries(): Promise<SeriesRow[]> {
+    return this.dataSource.query(
+      `SELECT TO_CHAR(DATE_TRUNC('hour', s."soldAt"), 'HH24:00') AS label,
+              COALESCE(SUM(s."totalPrice"), 0) AS revenue
+       FROM "sales" s
+       WHERE s."isActive" = true
+         AND s."soldAt" >= NOW() - INTERVAL '23 hour'
+       GROUP BY DATE_TRUNC('hour', s."soldAt")
+       ORDER BY DATE_TRUNC('hour', s."soldAt") ASC`,
+    );
   }
 
   private async revenueWeeklySeries(): Promise<SeriesRow[]> {
@@ -241,25 +568,51 @@ export class DashboardOverviewService {
 
   private async revenueMonthlySeries(): Promise<SeriesRow[]> {
     return this.dataSource.query(
+      `SELECT TO_CHAR(DATE_TRUNC('day', s."soldAt"), 'DD Mon') AS label,
+              COALESCE(SUM(s."totalPrice"), 0) AS revenue
+       FROM "sales" s
+       WHERE s."isActive" = true
+         AND s."soldAt" >= DATE_TRUNC('month', NOW())
+       GROUP BY DATE_TRUNC('day', s."soldAt")
+       ORDER BY DATE_TRUNC('day', s."soldAt") ASC`,
+    );
+  }
+
+  private async revenueThreeMonthsSeries(): Promise<SeriesRow[]> {
+    return this.dataSource.query(
       `SELECT TO_CHAR(DATE_TRUNC('month', s."soldAt"), 'Mon') AS label,
               COALESCE(SUM(s."totalPrice"), 0) AS revenue
        FROM "sales" s
        WHERE s."isActive" = true
-         AND s."soldAt" >= DATE_TRUNC('month', NOW()) - INTERVAL '11 month'
+         AND s."soldAt" >= DATE_TRUNC('month', NOW()) - INTERVAL '2 month'
        GROUP BY DATE_TRUNC('month', s."soldAt")
        ORDER BY DATE_TRUNC('month', s."soldAt") ASC`,
     );
   }
 
-  private async revenueYearlySeries(): Promise<SeriesRow[]> {
+  private async revenueSixMonthsSeries(): Promise<SeriesRow[]> {
     return this.dataSource.query(
-      `SELECT TO_CHAR(DATE_TRUNC('year', s."soldAt"), 'YYYY') AS label,
+      `SELECT TO_CHAR(DATE_TRUNC('month', s."soldAt"), 'Mon') AS label,
               COALESCE(SUM(s."totalPrice"), 0) AS revenue
        FROM "sales" s
        WHERE s."isActive" = true
-         AND s."soldAt" >= DATE_TRUNC('year', NOW()) - INTERVAL '4 year'
-       GROUP BY DATE_TRUNC('year', s."soldAt")
-       ORDER BY DATE_TRUNC('year', s."soldAt") ASC`,
+         AND s."soldAt" >= DATE_TRUNC('month', NOW()) - INTERVAL '5 month'
+       GROUP BY DATE_TRUNC('month', s."soldAt")
+       ORDER BY DATE_TRUNC('month', s."soldAt") ASC`,
+    );
+  }
+
+  private async revenueCustomSeries(from: Date, to: Date): Promise<SeriesRow[]> {
+    return this.dataSource.query(
+      `SELECT TO_CHAR(DATE_TRUNC('day', s."soldAt"), 'DD Mon') AS label,
+              COALESCE(SUM(s."totalPrice"), 0) AS revenue
+       FROM "sales" s
+       WHERE s."isActive" = true
+         AND s."soldAt" >= $1
+         AND s."soldAt" < $2
+       GROUP BY DATE_TRUNC('day', s."soldAt")
+       ORDER BY DATE_TRUNC('day', s."soldAt") ASC`,
+      [from.toISOString(), to.toISOString()],
     );
   }
 

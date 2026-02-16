@@ -14,11 +14,16 @@ export function toSaleView(sale: Sale): SaleViewDto {
     id: sale.id,
     soldAt: sale.soldAt,
     customerId: sale.customerId,
+    sellerWorkerId: sale.sellerWorkerId,
     paymentMethod: sale.paymentMethod,
     paymentType: sale.paymentType,
     totalPrice: sale.totalPrice,
     paidNow: sale.paidNow,
     remaining: sale.remaining,
+    installmentMonths: sale.installmentMonths,
+    firstPaymentNow: sale.firstPaymentNow,
+    monthlyInstallmentAmount: sale.monthlyInstallmentAmount,
+    profit: sale.profit,
     notes: sale.notes,
     customer: sale.customer
       ? {
@@ -43,6 +48,10 @@ export function toSaleItemView(item: SaleItem): SaleItemViewDto {
       model: item.item?.model,
       status: item.item?.status,
       condition: item.item?.condition,
+      storage: item.item?.storage,
+      color: item.item?.color,
+      serialNumber: item.item?.serialNumber,
+      knownIssues: item.item?.knownIssues,
     },
   };
 }

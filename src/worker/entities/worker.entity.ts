@@ -1,7 +1,6 @@
 import {
   Column,
   Entity,
-  Index,
   JoinColumn,
   ManyToOne,
   OneToMany,
@@ -18,20 +17,46 @@ export enum WorkerRole {
   OTHER = 'OTHER',
 }
 
+export enum WorkerSalaryType {
+  MONTHLY = 'MONTHLY',
+  PERCENT = 'PERCENT',
+}
+
 @Entity({ name: 'workers' })
 export class Worker extends Extender {
   @Column({ type: 'varchar', length: 120 })
   fullName: string;
 
-  @Index({ unique: true })
-  @Column({ type: 'varchar', length: 30 })
-  phoneNumber: string;
+  @Column({ type: 'varchar', length: 30, nullable: true })
+  phoneNumber: string | null;
 
   @Column({ type: 'varchar', length: 255, nullable: true })
   address: string | null;
 
   @Column({ type: 'numeric', precision: 12, scale: 2, default: 0 })
   monthlySalary: string;
+
+  @Column({
+    type: 'enum',
+    enum: WorkerSalaryType,
+    default: WorkerSalaryType.MONTHLY,
+  })
+  salaryType: WorkerSalaryType;
+
+  @Column({ type: 'numeric', precision: 5, scale: 2, nullable: true })
+  salaryPercent: string | null;
+
+  @Column({ type: 'int', default: 0 })
+  soldPhonesCount: number;
+
+  @Column({ type: 'numeric', precision: 14, scale: 2, default: 0 })
+  totalSoldAmount: string;
+
+  @Column({ type: 'numeric', precision: 14, scale: 2, default: 0 })
+  totalProfitAmount: string;
+
+  @Column({ type: 'numeric', precision: 14, scale: 2, default: 0 })
+  percentSalaryAccrued: string;
 
   @Column({ type: 'enum', enum: WorkerRole, default: WorkerRole.OTHER })
   workerRole: WorkerRole;

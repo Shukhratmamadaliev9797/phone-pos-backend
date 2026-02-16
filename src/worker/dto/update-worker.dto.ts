@@ -4,14 +4,17 @@ import {
   IsBoolean,
   IsEmail,
   IsEnum,
+  IsNumber,
   IsOptional,
   IsString,
+  Max,
   MaxLength,
   Min,
+  ValidateIf,
   ValidateNested,
 } from 'class-validator';
 import { UserRole } from 'src/user/user/entities/user.entity';
-import { WorkerRole } from '../entities/worker.entity';
+import { WorkerRole, WorkerSalaryType } from '../entities/worker.entity';
 
 export class UpdateWorkerLoginDto {
   @ApiPropertyOptional()
@@ -60,9 +63,24 @@ export class UpdateWorkerDto {
 
   @ApiPropertyOptional()
   @IsOptional()
+  @ValidateIf((dto: UpdateWorkerDto) => dto.salaryType === WorkerSalaryType.MONTHLY)
   @Type(() => Number)
   @Min(0)
   monthlySalary?: number;
+
+  @ApiPropertyOptional({ enum: WorkerSalaryType })
+  @IsOptional()
+  @IsEnum(WorkerSalaryType)
+  salaryType?: WorkerSalaryType;
+
+  @ApiPropertyOptional()
+  @IsOptional()
+  @ValidateIf((dto: UpdateWorkerDto) => dto.salaryType === WorkerSalaryType.PERCENT)
+  @Type(() => Number)
+  @IsNumber()
+  @Min(0)
+  @Max(100)
+  salaryPercent?: number;
 
   @ApiPropertyOptional({ enum: WorkerRole })
   @IsOptional()

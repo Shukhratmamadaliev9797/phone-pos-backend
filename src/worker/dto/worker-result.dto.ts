@@ -1,21 +1,30 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { WorkerRole } from '../entities/worker.entity';
+import { WorkerRole, WorkerSalaryType } from '../entities/worker.entity';
 
 export class WorkerViewDto {
+  @ApiProperty()
+  createdAt: Date;
+
   @ApiProperty()
   id: number;
 
   @ApiProperty()
   fullName: string;
 
-  @ApiProperty()
-  phoneNumber: string;
+  @ApiPropertyOptional()
+  phoneNumber?: string | null;
 
   @ApiPropertyOptional()
   address?: string | null;
 
   @ApiProperty()
   monthlySalary: string;
+
+  @ApiProperty({ enum: WorkerSalaryType })
+  salaryType: WorkerSalaryType;
+
+  @ApiPropertyOptional()
+  salaryPercent?: string | null;
 
   @ApiProperty({ enum: WorkerRole })
   workerRole: WorkerRole;
@@ -31,6 +40,18 @@ export class WorkerViewDto {
 
   @ApiPropertyOptional()
   notes?: string | null;
+
+  @ApiProperty()
+  soldPhonesCount: number;
+
+  @ApiProperty()
+  totalSoldAmount: string;
+
+  @ApiProperty()
+  totalProfitAmount: string;
+
+  @ApiProperty()
+  percentSalaryAccrued: string;
 }
 
 export class SalaryPaymentViewDto {

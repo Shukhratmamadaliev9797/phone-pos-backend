@@ -15,6 +15,7 @@ import {
   InventoryActivityType,
 } from '../entities/inventory-activity.entity';
 import { InventoryItemStatus } from '../entities/inventory-item.entity';
+import { Repair, RepairStatus } from 'src/repair/entities/repair.entity';
 
 @Injectable()
 export class InventoryUpdateService {
@@ -89,6 +90,7 @@ export class InventoryUpdateService {
     const saved = await this.inventoryItemsRepository.manager.transaction(
       async (manager) => {
         const persisted = await manager.getRepository(InventoryItem).save(item);
+        const repairsRepository = manager.getRepository(Repair);
 
         if (prevStatus !== nextStatus) {
           const type =
@@ -113,6 +115,46 @@ export class InventoryUpdateService {
                   : `Inventory status changed from ${prevStatus} to ${nextStatus}`,
           });
           await manager.getRepository(InventoryActivity).save(activity);
+        }
+
+        if (dto.repairCost !== undefined) {
+          const normalizedRepairCost = Math.max(0, Number(dto.repairCost ?? 0));
+          const latestRepair = await repairsRepository.findOne({
+            where: { item: { id: persisted.id }, isActive: true },
+            relations: { item: true },
+            order: { repairedAt: 'DESC', id: 'DESC' },
+          });
+
+          if (latestRepair) {
+            latestRepair.costTotal = normalizedRepairCost.toFixed(2);
+            if (dto.knownIssues !== undefined) {
+              latestRepair.description =
+                dto.knownIssues?.trim() || latestRepair.description;
+            }
+            latestRepair.status =
+              nextStatus === InventoryItemStatus.IN_REPAIR
+                ? RepairStatus.PENDING
+                : RepairStatus.DONE;
+            await repairsRepository.save(latestRepair);
+          } else if (normalizedRepairCost > 0) {
+            await repairsRepository.save(
+              repairsRepository.create({
+                item: persisted,
+                repairedAt: new Date(),
+                description:
+                  dto.knownIssues?.trim() ||
+                  'Repair cost added from inventory edit',
+                status:
+                  nextStatus === InventoryItemStatus.IN_REPAIR
+                    ? RepairStatus.PENDING
+                    : RepairStatus.DONE,
+                costTotal: normalizedRepairCost.toFixed(2),
+                partsCost: null,
+                laborCost: null,
+                notes: dto.knownIssues?.trim() || null,
+              }),
+            );
+          }
         }
 
         return persisted;

@@ -100,14 +100,33 @@ async function run() {
   await dataSource.initialize();
 
   if (shouldReseed) {
-    await dataSource.query('TRUNCATE TABLE "users" RESTART IDENTITY CASCADE');
+    await dataSource.query(`
+      TRUNCATE TABLE
+        "sale_activities",
+        "sale_items",
+        "sales",
+        "repair_entries",
+        "repairs",
+        "purchase_activities",
+        "purchase_items",
+        "purchases",
+        "inventory_activities",
+        "inventory_items",
+        "worker_salary_payments",
+        "workers",
+        "customers",
+        "support_requests",
+        "users"
+      RESTART IDENTITY CASCADE
+    `);
   }
 
-  const count = await seedPosUsers(dataSource);
+  const summary = await seedPosUsers(dataSource);
   await dataSource.destroy();
 
   const mode = shouldReseed ? 'reseeded' : 'seeded';
-  console.log(`Successfully ${mode} ${count} POS users`);
+  console.log(`Successfully ${mode} POS test data`);
+  console.log('[seed] Summary', summary);
 }
 
 void run().catch(async (error: unknown) => {

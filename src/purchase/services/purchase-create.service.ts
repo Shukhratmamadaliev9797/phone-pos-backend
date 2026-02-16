@@ -4,7 +4,6 @@ import { CustomerEnsureService } from 'src/customer/services/customer-ensure.ser
 import { Customer } from 'src/customer/entities/customer.entity';
 import {
   InventoryItem,
-  InventoryItemCondition,
   InventoryItemStatus,
 } from 'src/inventory/entities/inventory-item.entity';
 import {
@@ -263,20 +262,10 @@ export class PurchaseCreateService extends PurchaseBaseService {
 
   private resolveInitialStatus(
     initialStatus: InitialPurchaseItemStatus | undefined,
-    condition: InventoryItemCondition,
+    condition: unknown,
   ): InventoryItemStatus {
-    if (initialStatus === InitialPurchaseItemStatus.IN_REPAIR) {
-      return InventoryItemStatus.IN_REPAIR;
-    }
-
-    if (initialStatus === InitialPurchaseItemStatus.READY_FOR_SALE) {
-      return InventoryItemStatus.READY_FOR_SALE;
-    }
-
-    if (condition === InventoryItemCondition.BROKEN) {
-      return InventoryItemStatus.IN_REPAIR;
-    }
-
-    return InventoryItemStatus.READY_FOR_SALE;
+    void initialStatus;
+    void condition;
+    return InventoryItemStatus.IN_STOCK;
   }
 }

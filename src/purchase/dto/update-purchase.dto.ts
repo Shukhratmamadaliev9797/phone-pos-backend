@@ -3,6 +3,7 @@ import { Type } from 'class-transformer';
 import {
   ArrayMinSize,
   IsArray,
+  IsBoolean,
   IsEnum,
   IsInt,
   IsISO8601,
@@ -144,6 +145,14 @@ export class UpdatePurchaseDto {
   @IsOptional()
   @IsString()
   notes?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'If true and total price changed, keeps only initial payment activity',
+  })
+  @IsOptional()
+  @IsBoolean()
+  resetPaymentActivities?: boolean;
 
   @ApiPropertyOptional({ type: [UpdatePurchaseItemDto] })
   @IsOptional()

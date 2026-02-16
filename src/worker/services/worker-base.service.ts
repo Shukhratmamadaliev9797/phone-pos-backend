@@ -134,19 +134,42 @@ export class WorkerBaseService {
     );
   }
 
-  protected normalizeWorkerUsername(phoneNumber: string): string {
-    const digits = phoneNumber.replace(/\D+/g, '');
-    if (!digits) {
-      throw new BadRequestException('phoneNumber must include digits');
+  protected normalizeWorkerUsername(source: string): string {
+    const normalized = source.trim().toLowerCase();
+    const digits = normalized.replace(/\D+/g, '');
+    if (digits) {
+      return `wrk_${digits}`;
     }
-    return `wrk_${digits}`;
+    const safe = normalized.replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+    return `wrk_${safe || 'user'}`;
+  }
+
+  protected normalizeOptionalPhone(phoneNumber?: string | null): string | null {
+    if (phoneNumber === undefined || phoneNumber === null) {
+      return null;
+    }
+    const trimmed = phoneNumber.trim();
+    if (!trimmed) {
+      return null;
+    }
+    const digits = trimmed.replace(/\D+/g, '');
+    if (!digits || digits === '998') {
+      return null;
+    }
+    if (digits.startsWith('998')) {
+      return `+${digits}`;
+    }
+    return trimmed;
   }
 
   protected async ensureActiveWorkerPhoneUnique(
-    phoneNumber: string,
+    phoneNumber: string | null,
     ignoreWorkerId?: number,
     manager?: EntityManager,
   ): Promise<void> {
+    if (!phoneNumber) {
+      return;
+    }
     const repository = manager
       ? manager.getRepository(Worker)
       : this.workersRepository;
@@ -179,7 +202,7 @@ export class WorkerBaseService {
       password: string;
       role: UserRole;
       fullName: string;
-      phoneNumber: string;
+      phoneNumber?: string | null;
       address?: string | null;
     },
     manager?: EntityManager,
@@ -188,7 +211,9 @@ export class WorkerBaseService {
 
     await this.ensureActiveEmailUnique(params.email, undefined, manager);
 
-    const baseUsername = this.normalizeWorkerUsername(params.phoneNumber);
+    const baseUsername = this.normalizeWorkerUsername(
+      params.phoneNumber || params.email,
+    );
     let username = baseUsername;
     let suffix = 1;
 
@@ -203,7 +228,7 @@ export class WorkerBaseService {
       username,
       fullName: params.fullName,
       passwordHash: await hashPassword(params.password),
-      phoneNumber: params.phoneNumber,
+      phoneNumber: params.phoneNumber ?? null,
       address: params.address ?? null,
       role: params.role,
       isActive: true,

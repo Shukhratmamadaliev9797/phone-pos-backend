@@ -16,6 +16,7 @@ import { SaleActivity } from 'src/sale/entities/sale-activity.entity';
 import { Sale } from 'src/sale/entities/sale.entity';
 import { User } from 'src/user/user/entities/user.entity';
 import { SupportRequest } from 'src/support-request/entities/support-request.entity';
+import { DashboardMetric } from 'src/dashboard/entities/dashboard-metric.entity';
 import { WorkerSalaryPayment } from 'src/worker/entities/worker-salary-payment.entity';
 import { Worker } from 'src/worker/entities/worker.entity';
 import { CreatePosCoreSchema1739066400000 } from './1739066400000-create-pos-core-schema';
@@ -31,6 +32,17 @@ import { AddSupportRequestReadStatus1739091000000 } from './1739091000000-add-su
 import { CreateInventoryActivities1739093000000 } from './1739093000000-create-inventory-activities';
 import { ExtendInventoryActivitiesTypeEnum1739094000000 } from './1739094000000-extend-inventory-activities-type-enum';
 import { FixSaleItemUniqueActiveIndex1739195000000 } from './1739195000000-fix-sale-item-unique-active-index';
+import { AddSaleInstallmentFields1739300000000 } from './1739300000000-add-sale-installment-fields';
+import { AddSaleProfit1739301000000 } from './1739301000000-add-sale-profit';
+import { AddWorkerSalaryType1739302000000 } from './1739302000000-add-worker-salary-type';
+import { AddSaleSellerAndWorkerSalesStats1739303000000 } from './1739303000000-add-sale-seller-and-worker-sales-stats';
+import { AddWorkerTotalProfitAmount1739530000000 } from './1739530000000-add-worker-total-profit-amount';
+import { MakeWorkerPhoneOptional1739532000000 } from './1739532000000-make-worker-phone-optional';
+import { CreateDashboardMetrics1739600000000 } from './1739600000000-create-dashboard-metrics';
+import { AddSaleRevenueDashboardMetricType1739601000000 } from './1739601000000-add-sale-revenue-dashboard-metric-type';
+import { AddDashboardEventMetricTypes1739602000000 } from './1739602000000-add-dashboard-event-metric-types';
+import { AddInventoryMetricTypes1739603000000 } from './1739603000000-add-inventory-metric-types';
+import { DropDashboardMetrics1739604000000 } from './1739604000000-drop-dashboard-metrics';
 
 const envPath = resolve(__dirname, '../../../.env');
 loadEnv({ path: envPath, override: true });
@@ -108,6 +120,7 @@ const dataSource = new DataSource({
     Worker,
     WorkerSalaryPayment,
     SupportRequest,
+    DashboardMetric,
   ],
   migrations: [
     DropUsersPasswordColumn1739059200000,
@@ -123,6 +136,17 @@ const dataSource = new DataSource({
     CreateInventoryActivities1739093000000,
     ExtendInventoryActivitiesTypeEnum1739094000000,
     FixSaleItemUniqueActiveIndex1739195000000,
+    AddSaleInstallmentFields1739300000000,
+    AddSaleProfit1739301000000,
+    AddWorkerSalaryType1739302000000,
+    AddSaleSellerAndWorkerSalesStats1739303000000,
+    AddWorkerTotalProfitAmount1739530000000,
+    MakeWorkerPhoneOptional1739532000000,
+    CreateDashboardMetrics1739600000000,
+    AddSaleRevenueDashboardMetricType1739601000000,
+    AddDashboardEventMetricTypes1739602000000,
+    AddInventoryMetricTypes1739603000000,
+    DropDashboardMetrics1739604000000,
   ],
   synchronize: false,
 });

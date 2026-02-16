@@ -12,6 +12,7 @@ type InventoryRowRaw = {
   id: number;
   imei: string;
   storage: string | null;
+  color: string | null;
   serialNumber: string | null;
   purchaseId: number | null;
   saleId: number | null;
@@ -77,6 +78,7 @@ export class InventoryFindAllService {
       .select('item.id', 'id')
       .addSelect('item.imei', 'imei')
       .addSelect('item.storage', 'storage')
+      .addSelect('item.color', 'color')
       .addSelect('item."serialNumber"', 'serialNumber')
       .addSelect('item."purchaseId"', 'purchaseId')
       .addSelect('item."saleId"', 'saleId')
@@ -91,6 +93,7 @@ export class InventoryFindAllService {
       .groupBy('item.id')
       .addGroupBy('item.imei')
       .addGroupBy('item.storage')
+      .addGroupBy('item.color')
       .addGroupBy('item."serialNumber"')
       .addGroupBy('item."purchaseId"')
       .addGroupBy('item."saleId"')
@@ -123,6 +126,7 @@ export class InventoryFindAllService {
         model: row.model,
         imei: row.imei,
         storage: row.storage,
+        color: row.color,
         serialNumber: row.serialNumber,
         purchaseId: row.purchaseId,
         saleId: row.saleId,

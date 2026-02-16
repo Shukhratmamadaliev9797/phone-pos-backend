@@ -2,7 +2,7 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { User } from 'src/user/user/entities/user.entity';
 import { UpdateWorkerDto } from '../dto/update-worker.dto';
 import { WorkerViewDto } from '../dto/worker-result.dto';
-import { Worker } from '../entities/worker.entity';
+import { Worker, WorkerSalaryType } from '../entities/worker.entity';
 import { toWorkerView } from '../helper';
 import { WorkerBaseService } from './worker-base.service';
 import { hashPassword } from 'src/auth/helper';
@@ -16,24 +16,68 @@ export class WorkerUpdateService extends WorkerBaseService {
         const workerRepository = manager.getRepository(Worker);
         const userRepository = manager.getRepository(User);
 
-        if (dto.phoneNumber && dto.phoneNumber !== worker.phoneNumber) {
-          await this.ensureActiveWorkerPhoneUnique(dto.phoneNumber, worker.id, manager);
+        const normalizedIncomingPhone =
+          dto.phoneNumber !== undefined
+            ? this.normalizeOptionalPhone(dto.phoneNumber)
+            : undefined;
+
+        if (
+          normalizedIncomingPhone !== undefined &&
+          normalizedIncomingPhone !== worker.phoneNumber
+        ) {
+          await this.ensureActiveWorkerPhoneUnique(
+            normalizedIncomingPhone,
+            worker.id,
+            manager,
+          );
         }
 
         if (dto.fullName !== undefined) {
           worker.fullName = dto.fullName.trim();
         }
 
-        if (dto.phoneNumber !== undefined) {
-          worker.phoneNumber = dto.phoneNumber.trim();
+        if (normalizedIncomingPhone !== undefined) {
+          worker.phoneNumber = normalizedIncomingPhone;
         }
 
         if (dto.address !== undefined) {
           worker.address = dto.address?.trim() ?? null;
         }
 
-        if (dto.monthlySalary !== undefined) {
-          worker.monthlySalary = this.toMoney(this.parseNumeric(dto.monthlySalary));
+        if (
+          dto.salaryType !== undefined ||
+          dto.monthlySalary !== undefined ||
+          dto.salaryPercent !== undefined
+        ) {
+          const effectiveSalaryType = dto.salaryType ?? worker.salaryType;
+
+          if (effectiveSalaryType === WorkerSalaryType.MONTHLY) {
+            if (dto.monthlySalary === undefined && dto.salaryType === WorkerSalaryType.MONTHLY) {
+              throw new BadRequestException(
+                'monthlySalary is required when salaryType=MONTHLY',
+              );
+            }
+            const monthly =
+              dto.monthlySalary !== undefined
+                ? this.parseNumeric(dto.monthlySalary)
+                : this.parseNumeric(worker.monthlySalary);
+            worker.salaryType = WorkerSalaryType.MONTHLY;
+            worker.monthlySalary = this.toMoney(monthly);
+            worker.salaryPercent = null;
+          } else {
+            if (dto.salaryPercent === undefined && dto.salaryType === WorkerSalaryType.PERCENT) {
+              throw new BadRequestException(
+                'salaryPercent is required when salaryType=PERCENT',
+              );
+            }
+            const percent =
+              dto.salaryPercent !== undefined
+                ? this.parseNumeric(dto.salaryPercent)
+                : this.parseNumeric(worker.salaryPercent ?? 0);
+            worker.salaryType = WorkerSalaryType.PERCENT;
+            worker.salaryPercent = this.toMoney(percent);
+            worker.monthlySalary = this.toMoney(0);
+          }
         }
 
         if (dto.workerRole !== undefined) {

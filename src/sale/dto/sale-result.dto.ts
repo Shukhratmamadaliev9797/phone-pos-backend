@@ -23,6 +23,18 @@ export class SaleItemInventoryDto {
 
   @ApiProperty({ enum: InventoryItemCondition })
   condition: InventoryItemCondition;
+
+  @ApiPropertyOptional()
+  storage?: string | null;
+
+  @ApiPropertyOptional()
+  color?: string | null;
+
+  @ApiPropertyOptional()
+  serialNumber?: string | null;
+
+  @ApiPropertyOptional()
+  knownIssues?: string | null;
 }
 
 export class SaleItemViewDto {
@@ -66,6 +78,9 @@ export class SaleViewDto {
   @ApiPropertyOptional()
   customerId?: number | null;
 
+  @ApiPropertyOptional()
+  sellerWorkerId?: number | null;
+
   @ApiProperty({ enum: SalePaymentMethod })
   paymentMethod: SalePaymentMethod;
 
@@ -80,6 +95,18 @@ export class SaleViewDto {
 
   @ApiProperty()
   remaining: string;
+
+  @ApiPropertyOptional()
+  installmentMonths?: number | null;
+
+  @ApiPropertyOptional()
+  firstPaymentNow?: boolean | null;
+
+  @ApiPropertyOptional()
+  monthlyInstallmentAmount?: string | null;
+
+  @ApiPropertyOptional()
+  profit?: string | null;
 
   @ApiPropertyOptional()
   notes?: string | null;

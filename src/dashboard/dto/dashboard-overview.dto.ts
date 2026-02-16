@@ -35,13 +35,22 @@ class RevenuePointDto {
 
 class DashboardRevenueSeriesDto {
   @ApiProperty({ type: [RevenuePointDto] })
+  daily: RevenuePointDto[];
+
+  @ApiProperty({ type: [RevenuePointDto] })
   weekly: RevenuePointDto[];
 
   @ApiProperty({ type: [RevenuePointDto] })
   monthly: RevenuePointDto[];
 
   @ApiProperty({ type: [RevenuePointDto] })
-  yearly: RevenuePointDto[];
+  threeMonths: RevenuePointDto[];
+
+  @ApiProperty({ type: [RevenuePointDto] })
+  sixMonths: RevenuePointDto[];
+
+  @ApiProperty({ type: [RevenuePointDto] })
+  custom: RevenuePointDto[];
 }
 
 class DashboardRecentRowDto {
@@ -77,12 +86,53 @@ class DashboardPaidVsUnpaidDto {
   credit: number;
 }
 
+class DashboardSalarySummaryDto {
+  @ApiProperty()
+  paid: number;
+
+  @ApiProperty()
+  remaining: number;
+}
+
+class DashboardPhoneSummaryDto {
+  @ApiProperty()
+  sold: number;
+
+  @ApiProperty()
+  purchased: number;
+}
+
+class DashboardInventorySummaryDto {
+  @ApiProperty()
+  count: number;
+
+  @ApiProperty()
+  totalPrice: number;
+}
+
+class DashboardWorkerSummaryDto {
+  @ApiProperty()
+  count: number;
+}
+
 export class DashboardOverviewDto {
   @ApiProperty({ type: DashboardKpisDto })
   kpis: DashboardKpisDto;
 
   @ApiProperty({ type: DashboardPaidVsUnpaidDto })
   paidVsUnpaid: DashboardPaidVsUnpaidDto;
+
+  @ApiProperty({ type: DashboardSalarySummaryDto })
+  salarySummary: DashboardSalarySummaryDto;
+
+  @ApiProperty({ type: DashboardPhoneSummaryDto })
+  phoneSummary: DashboardPhoneSummaryDto;
+
+  @ApiProperty({ type: DashboardInventorySummaryDto })
+  inventorySummary: DashboardInventorySummaryDto;
+
+  @ApiProperty({ type: DashboardWorkerSummaryDto })
+  workerSummary: DashboardWorkerSummaryDto;
 
   @ApiProperty({ type: DashboardRevenueSeriesDto })
   salesRevenue: DashboardRevenueSeriesDto;

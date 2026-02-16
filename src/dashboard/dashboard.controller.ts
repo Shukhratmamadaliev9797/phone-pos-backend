@@ -1,9 +1,10 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Query } from '@nestjs/common';
 import { ApiBearerAuth, ApiOkResponse, ApiTags } from '@nestjs/swagger';
 import { Roles } from 'src/common/decorators/roles.decorator';
 import { UserRole } from 'src/user/user/entities/user.entity';
 import { DashboardOverviewDto } from './dto/dashboard-overview.dto';
 import { DashboardService } from './services/dashboard.service';
+import { DashboardKpiPeriod } from './services/dashboard-overview.service';
 
 @ApiTags('Dashboard')
 @ApiBearerAuth('access-token')
@@ -19,7 +20,20 @@ export class DashboardController {
     UserRole.TECHNICIAN,
   )
   @ApiOkResponse({ type: DashboardOverviewDto })
-  async overview(): Promise<DashboardOverviewDto> {
-    return this.dashboardService.overview();
+  async overview(
+    @Query('kpiPeriod') kpiPeriod?: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ): Promise<DashboardOverviewDto> {
+    const allowed = new Set<DashboardKpiPeriod>([
+      'daily',
+      'weekly',
+      'monthly',
+      'custom',
+    ]);
+    const parsed = allowed.has((kpiPeriod ?? '') as DashboardKpiPeriod)
+      ? (kpiPeriod as DashboardKpiPeriod)
+      : 'monthly';
+    return this.dashboardService.overview(parsed, from, to);
   }
 }

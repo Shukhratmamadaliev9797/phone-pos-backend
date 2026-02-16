@@ -3,11 +3,9 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Customer } from 'src/customer/entities/customer.entity';
 import {
   InventoryItem,
-  InventoryItemCondition,
   InventoryItemStatus,
 } from 'src/inventory/entities/inventory-item.entity';
 import { EntityManager, QueryFailedError, Repository } from 'typeorm';
-import { InitialPurchaseItemStatus } from '../dto/create-purchase.dto';
 import {
   UpdatePurchaseItemDto,
   UpdatePurchaseCustomerDto,
@@ -47,15 +45,31 @@ export class PurchaseUpdateService extends PurchaseBaseService {
     try {
       await this.purchasesRepository.manager.transaction(async (manager) => {
         const purchase = await this.getActivePurchaseOrThrow(id, manager);
+        const currentTotalPrice = this.parseNumeric(purchase.totalPrice);
         const totalPrice =
           dto.items && dto.items.length > 0
             ? await this.applyItemsUpdate(manager, purchase, dto.items)
             : await this.getCurrentTotal(manager, purchase.id);
-        const paymentType = dto.paymentType ?? purchase.paymentType;
-        const paidNow =
+        const isPriceChanged =
+          Math.abs(totalPrice - currentTotalPrice) > 0.009;
+        const shouldResetPaymentActivities =
+          dto.resetPaymentActivities === true && isPriceChanged;
+
+        let paidNow =
           dto.paidNow !== undefined
             ? this.parseNumeric(dto.paidNow)
             : this.parseNumeric(purchase.paidNow);
+        const requestedPaymentType = dto.paymentType ?? purchase.paymentType;
+        let paymentType = requestedPaymentType;
+
+        if (shouldResetPaymentActivities) {
+          const initialPaymentAmount =
+            await this.resetActivitiesAndKeepInitial(manager, purchase.id);
+          paidNow = Math.min(initialPaymentAmount, totalPrice);
+          if (paidNow < totalPrice) {
+            paymentType = PurchasePaymentType.PAY_LATER;
+          }
+        }
 
         if (paymentType === PurchasePaymentType.PAID_NOW && paidNow < totalPrice) {
           throw new BadRequestException(
@@ -107,6 +121,34 @@ export class PurchaseUpdateService extends PurchaseBaseService {
 
     const purchase = await this.getActivePurchaseWithItemsOrThrow(id);
     return toPurchaseDetailView(purchase);
+  }
+
+  private async resetActivitiesAndKeepInitial(
+    manager: EntityManager,
+    purchaseId: number,
+  ): Promise<number> {
+    const activitiesRepository = manager.getRepository(PurchaseActivity);
+    const now = new Date();
+    const activities = await activitiesRepository.find({
+      where: { purchase: { id: purchaseId }, isActive: true },
+      order: { paidAt: 'ASC', id: 'ASC' },
+    });
+
+    if (activities.length === 0) {
+      return 0;
+    }
+
+    const initialActivity = activities[0];
+    for (const activity of activities.slice(1)) {
+      activity.isActive = false;
+      activity.deletedAt = now;
+    }
+
+    if (activities.length > 1) {
+      await activitiesRepository.save(activities.slice(1));
+    }
+
+    return this.parseNumeric(initialActivity.amount);
   }
 
   private async getCurrentTotal(
@@ -268,21 +310,11 @@ export class PurchaseUpdateService extends PurchaseBaseService {
 
   private resolveInitialStatus(
     status: UpdatePurchaseItemDto['initialStatus'],
-    condition: InventoryItemCondition,
-    fallback: InventoryItemStatus = InventoryItemStatus.READY_FOR_SALE,
+    condition: unknown,
+    fallback: InventoryItemStatus = InventoryItemStatus.IN_STOCK,
   ): InventoryItemStatus {
-    if (status === InitialPurchaseItemStatus.IN_REPAIR) {
-      return InventoryItemStatus.IN_REPAIR;
-    }
-
-    if (status === InitialPurchaseItemStatus.READY_FOR_SALE) {
-      return InventoryItemStatus.READY_FOR_SALE;
-    }
-
-    if (condition === InventoryItemCondition.BROKEN) {
-      return InventoryItemStatus.IN_REPAIR;
-    }
-
+    void status;
+    void condition;
     return fallback;
   }
 

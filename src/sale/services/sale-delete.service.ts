@@ -103,7 +103,7 @@ export class SaleDeleteService extends SaleBaseService {
         for (const item of inventoryItems) {
           item.sale = null;
           if (item.status === InventoryItemStatus.SOLD) {
-            item.status = InventoryItemStatus.READY_FOR_SALE;
+            item.status = InventoryItemStatus.IN_STOCK;
           }
           await manager.getRepository(InventoryItem).save(item);
         }

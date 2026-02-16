@@ -3,6 +3,7 @@ import { Type } from 'class-transformer';
 import {
   ArrayMinSize,
   IsArray,
+  IsBoolean,
   IsEnum,
   IsInt,
   IsISO8601,
@@ -84,6 +85,13 @@ export class CreateSaleDto {
   @Min(1)
   customerId?: number;
 
+  @ApiPropertyOptional()
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  sellerWorkerId?: number;
+
   @ApiPropertyOptional({ type: CreateSaleCustomerDto })
   @IsOptional()
   @ValidateNested()
@@ -104,6 +112,24 @@ export class CreateSaleDto {
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
   paidNow?: number;
+
+  @ApiPropertyOptional({ example: 6 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  installmentMonths?: number;
+
+  @ApiPropertyOptional({ example: true })
+  @IsOptional()
+  @IsBoolean()
+  firstPaymentNow?: boolean;
+
+  @ApiPropertyOptional({ example: 150000 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber({ maxDecimalPlaces: 2 })
+  profit?: number;
 
   @ApiPropertyOptional()
   @IsOptional()

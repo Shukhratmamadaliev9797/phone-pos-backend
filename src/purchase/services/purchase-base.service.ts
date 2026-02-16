@@ -122,6 +122,7 @@ export class PurchaseBaseService {
 
     const purchase = await repository
       .createQueryBuilder('purchase')
+      .withDeleted()
       .leftJoinAndSelect('purchase.customer', 'customer')
       .leftJoinAndSelect(
         'purchase.items',
@@ -138,8 +139,7 @@ export class PurchaseBaseService {
       .leftJoinAndSelect(
         'purchaseItem.item',
         'inventoryItem',
-        'inventoryItem.isActive = :inventoryItemIsActive',
-        { inventoryItemIsActive: true },
+        '1=1',
       )
       .where('purchase.id = :id', { id })
       .andWhere('purchase.isActive = :isActive', { isActive: true })

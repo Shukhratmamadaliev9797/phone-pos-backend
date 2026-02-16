@@ -23,6 +23,17 @@ export class InventoryFindOneService {
       throw new NotFoundException('Inventory item not found');
     }
 
-    return toInventoryItemDetailView(item);
+    const repairSumRaw = await this.inventoryItemsRepository.manager.query<
+      Array<{ value: string | null }>
+    >(
+      `SELECT COALESCE(SUM(r."costTotal"), 0) AS value
+       FROM "repairs" r
+       WHERE r."isActive" = true
+         AND r."itemId" = $1`,
+      [id],
+    );
+    const repairCost = Number(repairSumRaw[0]?.value ?? 0);
+
+    return toInventoryItemDetailView(item, repairCost);
   }
 }

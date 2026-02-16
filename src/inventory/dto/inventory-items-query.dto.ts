@@ -43,6 +43,9 @@ export class InventoryListItemDto {
   storage?: string | null;
 
   @ApiPropertyOptional()
+  color?: string | null;
+
+  @ApiPropertyOptional()
   serialNumber?: string | null;
 
   @ApiPropertyOptional()

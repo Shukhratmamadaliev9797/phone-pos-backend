@@ -39,7 +39,13 @@ export class LoginDto {
   @IsString()
   password: string;
 
-  @ApiProperty({ enum: LoginRole, example: LoginRole.ADMIN })
+  @ApiProperty({
+    enum: LoginRole,
+    example: LoginRole.ADMIN,
+    required: false,
+    description: 'Deprecated: login no longer requires role selection',
+  })
+  @IsOptional()
   @IsEnum(LoginRole)
-  role: LoginRole;
+  role?: LoginRole;
 }

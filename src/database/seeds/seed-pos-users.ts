@@ -11,6 +11,20 @@ type SeedUser = {
   address: string;
 };
 
+export type PosSeedSummary = {
+  users: number;
+  workers: number;
+  customers: number;
+  inventoryItems: number;
+  purchases: number;
+  purchasePayments: number;
+  repairs: number;
+  repairEntries: number;
+  sales: number;
+  salePayments: number;
+  salaryPayments: number;
+};
+
 function emailToUsername(email: string): string {
   return email.split('@')[0];
 }
@@ -27,40 +41,19 @@ function buildSeedUsers(): SeedUser[] {
   const adminEmail = envOrDefault('ADMIN_EMAIL', 'admin@shop.com');
   const adminPassword = envOrDefault('ADMIN_PASSWORD', 'Admin123');
 
-  const users: SeedUser[] = [
+  return [
     {
       email: adminEmail,
-      fullName: 'Joyce Waller',
+      fullName: envOrDefault('ADMIN_FULL_NAME', 'Admin User'),
       role: UserRole.OWNER_ADMIN,
       plainPassword: adminPassword,
-      phoneNumber: '+998900000001',
-      address: 'Tashkent, Yunusobod',
-    },
-
-    {
-      email: 'cashier@shop.com',
-      fullName: 'Taylor Bond',
-      role: UserRole.CASHIER,
-      plainPassword: 'Cashier123',
-      phoneNumber: '+998900000002',
-      address: 'Tashkent, Chilonzor',
-    },
-    {
-      email: 'tech@shop.com',
-      fullName: 'Dani Johns',
-      role: UserRole.TECHNICIAN,
-      plainPassword: 'Tech123',
-      phoneNumber: '+998900000003',
-      address: 'Tashkent, Sergeli',
+      phoneNumber: envOrDefault('ADMIN_PHONE', '+998900000001'),
+      address: envOrDefault('ADMIN_ADDRESS', 'Tashkent'),
     },
   ];
-
-  return users;
 }
 
-export async function seedPosUsers(dataSource: DataSource): Promise<number> {
-  const users = buildSeedUsers();
-
+async function upsertUsers(dataSource: DataSource, users: SeedUser[]): Promise<void> {
   for (const user of users) {
     const passwordHash = await hashPassword(user.plainPassword);
     const username = emailToUsername(user.email);
@@ -115,6 +108,23 @@ export async function seedPosUsers(dataSource: DataSource): Promise<number> {
       })
       .execute();
   }
+}
 
-  return users.length;
+export async function seedPosUsers(dataSource: DataSource): Promise<PosSeedSummary> {
+  const users = buildSeedUsers();
+  await upsertUsers(dataSource, users);
+
+  return {
+    users: users.length,
+    workers: 0,
+    customers: 0,
+    inventoryItems: 0,
+    purchases: 0,
+    purchasePayments: 0,
+    repairs: 0,
+    repairEntries: 0,
+    sales: 0,
+    salePayments: 0,
+    salaryPayments: 0,
+  };
 }
